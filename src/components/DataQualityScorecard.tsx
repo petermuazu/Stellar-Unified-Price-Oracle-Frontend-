@@ -30,7 +30,7 @@ function FactorBar({ label, score, weight, description }: FactorBarProps) {
           {label}
           <span className="text-[10px] text-gray-600 font-mono">×{(weight * 100).toFixed(0)}%</span>
           {/* Tooltip trigger */}
-          <span className="hidden group-hover:block absolute left-0 top-6 z-10 w-52 bg-gray-800 border border-gray-700 rounded-lg p-2 text-[11px] text-gray-300 shadow-lg pointer-events-none">
+          <span className="hidden group-hover:block absolute start-0 top-6 z-10 w-52 bg-gray-800 border border-gray-700 rounded-lg p-2 text-[11px] text-gray-300 shadow-lg pointer-events-none">
             {description}
           </span>
         </span>

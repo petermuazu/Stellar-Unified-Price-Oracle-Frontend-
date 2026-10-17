@@ -1,11 +1,5 @@
 import { config } from '../config'
-import type {
-  WsMessage,
-  WsSubscribeMessage,
-  WsUnsubscribeMessage,
-  WsPauseMessage,
-  WsResumeMessage,
-} from '../types'
+import type { WsMessage, WsSubscribeMessage, WsUnsubscribeMessage, WsPauseMessage, WsResumeMessage } from '../types'
 import { wsAnalytics } from '../utils/wsAnalytics'
 import { recordWsMessageTiming } from '../utils/performanceMonitor'
 import { WS_PROTOCOL_VERSION } from './version'
@@ -14,6 +8,22 @@ import { WsMessageSchema } from './schemas'
 
 type MessageHandler = (msg: WsMessage) => void
 type StatusHandler = (status: ConnectionStatus) => void
+
+export type ReconnectCauseType = 'network' | 'browser' | 'server' | 'unknown'
+
+export interface ReconnectCause {
+  type: ReconnectCauseType
+  timestamp: number
+  closeCode?: number
+  closeReason?: string
+}
+
+export interface ReconnectCauseCounts {
+  network: number
+  browser: number
+  server: number
+  unknown: number
+}
 
 /**
  * Extended connection states per issue #247:
@@ -25,13 +35,7 @@ type StatusHandler = (status: ConnectionStatus) => void
  * - `paused`       — connected, but inbound updates are paused under backpressure (#469)
  */
 export type ConnectionStatus =
-  | 'connecting'
-  | 'connected'
-  | 'disconnected'
-  | 'reconnecting'
-  | 'waiting'
-  | 'dead'
-  | 'paused'
+  'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'waiting' | 'dead' | 'paused'
 
 /** Diagnostics exposed via the client for use in UI components. */
 export interface ConnectionDiagnostics {
@@ -49,6 +53,10 @@ export interface ConnectionDiagnostics {
   isPaused?: boolean
   /** Which realtime transport is currently active (#471). Only set by {@link RealtimeClient}. */
   transport?: 'ws' | 'sse'
+  /** Last disconnect cause inferred from browser events and server close frames. */
+  lastReconnectCause?: ReconnectCause | null
+  /** Disconnect totals by inferred cause, retained for this client session. */
+  reconnectCauseCounts?: ReconnectCauseCounts
 }
 
 const supportsDecompression = typeof DecompressionStream !== 'undefined'
@@ -178,6 +186,9 @@ export class WebSocketClient {
   // #472 – negotiated WS protocol version, or null before the handshake.
   private _protocolVersion: number | null = null
   private _protocolUpgradeRequired = false
+  private _lastReconnectCause: ReconnectCause | null = null
+  private _reconnectCauseCounts: ReconnectCauseCounts = { network: 0, browser: 0, server: 0, unknown: 0 }
+  private _browserTransportError = false
 
   private _status: ConnectionStatus = 'disconnected'
   get status(): ConnectionStatus {
@@ -192,6 +203,8 @@ export class WebSocketClient {
       protocolVersion: this._protocolVersion,
       protocolUpgradeRequired: this._protocolUpgradeRequired,
       isPaused: this._isPaused,
+      lastReconnectCause: this._lastReconnectCause,
+      reconnectCauseCounts: { ...this._reconnectCauseCounts },
     }
   }
 
@@ -273,9 +286,7 @@ export class WebSocketClient {
     this._isPaused = false
     this.sendRaw(JSON.stringify({ action: 'resume' } satisfies WsResumeMessage))
     if (this.subscribedPairs.size > 0) {
-      this.sendRaw(
-        JSON.stringify({ action: 'subscribe', assetPairs: Array.from(this.subscribedPairs) }),
-      )
+      this.sendRaw(JSON.stringify({ action: 'subscribe', assetPairs: Array.from(this.subscribedPairs) }))
     }
     this.setStatus('connected')
   }
@@ -296,9 +307,12 @@ export class WebSocketClient {
     if (this._protocolUpgradeRequired) {
       console.warn(
         `[WebSocket] Server speaks WS protocol v${serverVersion}, but this client supports v${WS_PROTOCOL_VERSION}. ` +
-          'Downgrading to the supported feature set — please update the client for full compatibility.',
+          'Realtime compatibility may be limited. Update the frontend to a compatible release; REST polling remains available.',
       )
     }
+    // The transport is still connected, but consumers need the new negotiated
+    // diagnostic immediately so they can surface compatibility guidance.
+    this.statusHandlersRef.forEach((handler) => handler(this._status))
   }
 
   // ── Public API ──────────────────────────────────────────────────────────────
@@ -318,6 +332,7 @@ export class WebSocketClient {
     this.ws.onopen = () => {
       this.reconnectAttempt = 0
       this._retryCount = 0
+      this._browserTransportError = false
       this._lastConnectedAt = Date.now()
       this.setStatus('connected')
 
@@ -414,20 +429,40 @@ export class WebSocketClient {
       }
     }
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
       this.useCompression = false
       this.stopHeartbeat()
       this.stopBackpressureMonitor()
       wsAnalytics.recordDisconnect()
       this._totalDisconnections++
+      if (!this.destroyed) this.recordReconnectCause(event)
       this.setStatus('disconnected')
       this.scheduleReconnect()
     }
 
     this.ws.onerror = () => {
+      this._browserTransportError = true
       wsAnalytics.recordError()
       this.ws?.close()
     }
+  }
+
+  private recordReconnectCause(event: CloseEvent): void {
+    const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false
+    const type: ReconnectCauseType = isOffline
+      ? 'network'
+      : this._browserTransportError || event.code === 1006
+        ? 'browser'
+        : event.code
+          ? 'server'
+          : 'unknown'
+    this._lastReconnectCause = {
+      type,
+      timestamp: Date.now(),
+      ...(event.code ? { closeCode: event.code } : {}),
+      ...(event.reason ? { closeReason: event.reason } : {}),
+    }
+    this._reconnectCauseCounts[type] += 1
   }
 
   private scheduleReconnect() {

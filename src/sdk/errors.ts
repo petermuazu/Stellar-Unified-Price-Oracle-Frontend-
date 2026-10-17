@@ -10,6 +10,7 @@ export type OracleErrorCode =
   | 'server_error'
   | 'unavailable'
   | 'network_error'
+  | 'version_mismatch'
   | 'invalid_response'
   | 'unknown'
 
@@ -64,6 +65,13 @@ export class OracleUnavailableError extends OracleError {
 export class OracleNetworkError extends OracleError {
   constructor(m: string, i: OracleErrorInit = {}) { super(m, { code: 'network_error', ...i }, true) }
 }
+export class OracleVersionMismatchError extends OracleError {
+  readonly serverVersion: string | null
+  constructor(m: string, i: OracleErrorInit = {}, serverVersion: string | null = null) {
+    super(m, { code: 'version_mismatch', ...i })
+    this.serverVersion = serverVersion
+  }
+}
 
 const CODE_MAP: Record<string, new (m: string, i?: OracleErrorInit) => OracleError> = {
   bad_request: OracleBadRequestError,
@@ -75,20 +83,38 @@ const CODE_MAP: Record<string, new (m: string, i?: OracleErrorInit) => OracleErr
   rate_limited: OracleRateLimitError,
   server_error: OracleServerError,
   unavailable: OracleUnavailableError,
+  version_mismatch: OracleVersionMismatchError,
 }
 
 const STATUS_CODE: Record<number, string> = {
-  400: 'bad_request', 401: 'unauthorized', 403: 'forbidden', 404: 'not_found', 409: 'conflict',
-  422: 'validation_failed', 429: 'rate_limited', 503: 'unavailable',
+  400: 'bad_request', 401: 'unauthorized', 403: 'forbidden', 404: 'not_found',
+  406: 'version_mismatch', 409: 'version_mismatch', 422: 'validation_failed', 429: 'rate_limited', 503: 'unavailable',
 }
 
 /** Map an HTTP status and optional parsed body (`{ code }` / `{ error: { code } }`) to a typed error. */
-export function errorFromResponse(status: number, statusText: string, body: unknown, retryAfterMs: number | null): OracleError {
+export function errorFromResponse(
+  status: number,
+  statusText: string,
+  body: unknown,
+  retryAfterMs: number | null,
+  serverVersion: string | null = null,
+): OracleError {
   const b = body as { code?: unknown; error?: { code?: unknown; message?: unknown } | string; message?: unknown } | null
-  const serverCode = typeof b?.code === 'string' ? b.code : typeof b?.error === 'object' && typeof b.error?.code === 'string' ? b.error.code : undefined
+  const serverCode =
+    typeof b?.code === 'string'
+      ? b.code
+      : typeof b?.error === 'object' && typeof b.error?.code === 'string'
+        ? b.error.code
+        : undefined
   const key = serverCode && serverCode in CODE_MAP ? serverCode : STATUS_CODE[status] ?? (status >= 500 ? 'server_error' : 'bad_request')
   const Ctor = CODE_MAP[key] ?? OracleError
-  const msg = `Oracle API request failed (${status} ${statusText})`
+  const msg =
+    key === 'version_mismatch'
+      ? `Oracle API version mismatch (${status} ${statusText})${serverVersion ? `; server version is ${serverVersion}` : ''}. Update the SDK or use a compatible API version.`
+      : `Oracle API request failed (${status} ${statusText})`
+  if (key === 'version_mismatch') {
+    return new OracleVersionMismatchError(msg, { status, retryAfterMs, body }, serverVersion)
+  }
   const err = new Ctor(msg, { status, retryAfterMs, body })
   if (key === 'forbidden') return Object.assign(err, { code: 'forbidden' as const })
   return err

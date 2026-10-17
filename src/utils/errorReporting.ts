@@ -33,6 +33,7 @@ import { captureError, captureMessage, addSentryBreadcrumb, setSentryContext, ge
 export interface ErrorContext {
   component?: string
   operation?: string
+  traceId?: string
   userId?: string
   sessionId?: string
   [key: string]: unknown
@@ -48,6 +49,7 @@ export interface ErrorReportOptions {
 
 export interface ErrorReport {
   id: string
+  traceId: string
   message: string
   timestamp: number
   context?: ErrorContext
@@ -56,6 +58,16 @@ export interface ErrorReport {
 
 let _errorReports: ErrorReport[] = []
 const MAX_STORED_ERRORS = 50
+let fallbackTraceCounter = 0
+
+/** Creates a client-side correlation ID without sending it to the API server. */
+export function createClientTraceId(): string {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return `trace-${globalThis.crypto.randomUUID()}`
+  }
+  fallbackTraceCounter += 1
+  return `trace-${Date.now().toString(36)}-${fallbackTraceCounter.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
 
 /**
  * Report an error with optional context.
@@ -66,13 +78,16 @@ export function reportError(error: Error | string, options: ErrorReportOptions =
 
   const errorMessage = error instanceof Error ? error.message : String(error)
   const stack = error instanceof Error ? error.stack : undefined
+  const traceId = typeof context.traceId === 'string' ? context.traceId : createClientTraceId()
+  const reportContext = { ...context, traceId }
 
   // Store locally for debugging
   const report: ErrorReport = {
     id: `err-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    traceId,
     message: errorMessage,
     timestamp: Date.now(),
-    context,
+    context: reportContext,
     stack,
   }
 
@@ -83,22 +98,22 @@ export function reportError(error: Error | string, options: ErrorReportOptions =
 
   // Set context in Sentry
   if (getSentryConfig().enabled) {
-    setSentryContext('error-context', context)
+    setSentryContext('error-context', reportContext)
   }
 
   // Add breadcrumb
-  addSentryBreadcrumb(`Error: ${errorMessage}`, { ...context, tags, level }, level === 'fatal' ? 'error' : level)
+  addSentryBreadcrumb(`Error: ${errorMessage}`, { ...reportContext, tags, level }, level === 'fatal' ? 'error' : level)
 
   // Report to Sentry
   const eventId = captureError(error, {
-    ...context,
+    ...reportContext,
     tags,
     level,
   })
 
   // Log locally
   console.error(`[ErrorReport ${report.id}]`, errorMessage, {
-    context,
+    context: reportContext,
     stack,
   })
 
@@ -234,6 +249,7 @@ export function reportNetworkError(
     status?: number
     statusText?: string
     responseTime?: number
+    traceId?: string
   } = {},
 ): string {
   return reportError(error, {
@@ -259,6 +275,7 @@ export function reportApiError(
     method?: string
     statusCode?: number
     responseBody?: unknown
+    traceId?: string
   } = {},
 ): string {
   return reportError(error, {

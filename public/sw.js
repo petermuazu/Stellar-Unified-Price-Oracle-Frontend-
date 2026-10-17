@@ -9,7 +9,9 @@
 //     page explicitly asks them to activate (see PwaUpdateBanner.tsx),
 //     so users are never silently switched to a new build mid-session.
 
-const CACHE_VERSION = 'stellar-oracle-shell-v1'
+const SW_VERSION = new URL(self.location.href).searchParams.get('v') || 'development'
+const CACHE_PREFIX = 'stellar-oracle-shell-'
+const CACHE_VERSION = `${CACHE_PREFIX}${SW_VERSION}`
 const SCOPE_URL = new URL('.', self.location.href)
 const OFFLINE_URL = new URL('offline.html', SCOPE_URL).href
 // offline.html's stylesheet and script are same-origin files (the CSP forbids
@@ -26,8 +28,19 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+      .then((keys) => {
+        const appCaches = keys.filter((key) => key.startsWith(CACHE_PREFIX))
+        const previousCaches = appCaches.filter((key) => key !== CACHE_VERSION)
+        const staleCaches = previousCaches.slice(0, -1)
+        return Promise.all(staleCaches.map((key) => caches.delete(key))).then(() => previousCaches.length > 0)
+      })
+      .then(async (hasPreviousVersion) => {
+        await self.clients.claim()
+        if (!hasPreviousVersion) return
+
+        const clients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' })
+        clients.forEach((client) => client.postMessage({ type: 'UPDATE_ACTIVATED', version: SW_VERSION }))
+      }),
   )
 })
 
@@ -62,14 +75,16 @@ async function handleNavigate(request) {
 }
 
 async function handleAsset(request) {
-  const cache = await caches.open(CACHE_VERSION)
-  const cached = await cache.match(request)
-  if (cached) return cached
+  const cacheNames = (await caches.keys()).filter((name) => name.startsWith(CACHE_PREFIX)).reverse()
+  for (const cacheName of cacheNames) {
+    const cached = await (await caches.open(cacheName)).match(request)
+    if (cached) return cached
+  }
 
   try {
     const response = await fetch(request)
     if (response.ok) {
-      cache.put(request, response.clone())
+      await (await caches.open(CACHE_VERSION)).put(request, response.clone())
     }
     return response
   } catch {

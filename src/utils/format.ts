@@ -41,6 +41,11 @@ export function formatPrice(price: number, locale: string | undefined = 'en-US')
   return price.toLocaleString(locale, { minimumFractionDigits: 6, maximumFractionDigits: 6 })
 }
 
+/** Formats a value as a currency using the locale's currency placement and digits. */
+export function formatCurrency(amount: number, currency: string, locale: string | undefined = 'en-US'): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount)
+}
+
 /**
  * Same scale tiers as {@link formatPrice} but without a fixed maximum decimal count (for chart labels).
  *

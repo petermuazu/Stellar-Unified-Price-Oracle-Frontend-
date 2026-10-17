@@ -14,6 +14,7 @@ import { useOnChainComparison } from '../hooks/useOnChainComparison'
 import { formatPrice, timeAgo, formatTimestamp } from '../utils/format'
 import { shortenAccount } from '../lib/stellarAssets'
 import type { DivergenceStatus } from '../types/onchain'
+import { MetricHelp } from './MetricHelp'
 
 const STATUS_STYLES: Record<DivergenceStatus, { badge: string; label: string }> = {
   'in-sync': { badge: 'bg-green-500/20 text-green-400 border-green-500/30', label: 'In sync' },
@@ -89,8 +90,9 @@ export function OnChainComparisonPanel({ pair, offChainPrice, thresholdPercent }
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400 mb-4">
-        <span>
-          Divergence:{' '}
+        <span className="inline-flex items-center">
+          Divergence:
+          <MetricHelp topic="divergence" />
           <span className="font-mono text-gray-300">
             {divergence.absoluteDelta >= 0 ? '+' : '-'}
             {formatPrice(Math.abs(divergence.absoluteDelta))} ({divergence.percentageDelta >= 0 ? '+' : ''}

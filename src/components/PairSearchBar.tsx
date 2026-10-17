@@ -166,12 +166,12 @@ export const PairSearchBar = memo(function PairSearchBar({
             onChange={handleChange}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            className="w-full pl-8 pr-3 py-1.5 min-h-[44px] text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="w-full ps-8 pe-3 py-1.5 min-h-[44px] text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
             aria-label="Search asset pairs"
           />
           {/* search icon */}
           <svg
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
+            className="absolute start-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -191,7 +191,7 @@ export const PairSearchBar = memo(function PairSearchBar({
                 onChange('')
                 setOpen(false)
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+              className="absolute end-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
               aria-label="Clear search"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -228,7 +228,7 @@ export const PairSearchBar = memo(function PairSearchBar({
           ref={listRef}
           role="listbox"
           aria-label="Pair suggestions"
-          className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-y-auto max-h-56 py-1"
+          className="absolute z-50 top-full start-0 end-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-xl overflow-y-auto max-h-56 py-1"
         >
           {!value && recent.length > 0 && (
             <li

@@ -17,21 +17,13 @@ interface MoveAttributionPanelProps {
  * renders a compact strip of the last few ticks so you can spot which source
  * consistently leads the market.
  */
-export const MoveAttributionPanel = memo(function MoveAttributionPanel({
-  latest,
-  history,
-}: MoveAttributionPanelProps) {
+export const MoveAttributionPanel = memo(function MoveAttributionPanel({ latest, history }: MoveAttributionPanelProps) {
   const aggDelta = latest.delta
   const aggDeltaPct = latest.deltaPercent
 
   return (
-    <section
-      aria-label="Move attribution"
-      className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6"
-    >
-      <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">
-        Move Attribution
-      </p>
+    <section aria-label="Move attribution" className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+      <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Move Attribution</p>
 
       {/* Aggregate delta summary */}
       <div className="flex items-baseline gap-3 mb-5">
@@ -40,16 +32,12 @@ export const MoveAttributionPanel = memo(function MoveAttributionPanel({
           <span className="text-sm text-gray-500 italic">First tick — no prior data</span>
         ) : (
           <>
-            <span
-              className={`text-lg font-mono font-semibold ${aggDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}
-            >
+            <span className={`text-lg font-mono font-semibold ${aggDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {aggDelta >= 0 ? '+' : ''}
               {aggDelta.toFixed(4)}
             </span>
             {aggDeltaPct !== null && (
-              <span
-                className={`text-sm font-mono ${aggDelta >= 0 ? 'text-green-500' : 'text-red-500'}`}
-              >
+              <span className={`text-sm font-mono ${aggDelta >= 0 ? 'text-green-500' : 'text-red-500'}`}>
                 ({aggDeltaPct >= 0 ? '+' : ''}
                 {aggDeltaPct.toFixed(3)}%)
               </span>
@@ -62,8 +50,7 @@ export const MoveAttributionPanel = memo(function MoveAttributionPanel({
       <div className="space-y-2 mb-4">
         {latest.sources.map((sd) => {
           const isLeader = latest.leadingSources.includes(sd.source)
-          const colorClass =
-            SOURCE_COLORS[sd.source] ?? 'bg-gray-800 text-gray-400 border-gray-700'
+          const colorClass = SOURCE_COLORS[sd.source] ?? 'bg-gray-800 text-gray-400 border-gray-700'
 
           return (
             <div
@@ -85,24 +72,20 @@ export const MoveAttributionPanel = memo(function MoveAttributionPanel({
               </span>
 
               {/* Current price */}
-              <span className="font-mono text-gray-200 w-24 text-right">
-                ${sd.price.toFixed(4)}
-              </span>
+              <span className="font-mono text-gray-200 w-24 text-end">${sd.price.toFixed(4)}</span>
 
               {/* Delta */}
               {sd.delta === null ? (
                 <span className="text-gray-500 italic text-xs">first tick</span>
               ) : (
                 <>
-                  <span
-                    className={`font-mono w-20 text-right ${sd.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
-                  >
+                  <span className={`font-mono w-20 text-end ${sd.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {sd.delta >= 0 ? '+' : ''}
                     {sd.delta.toFixed(4)}
                   </span>
                   {sd.deltaPercent !== null && (
                     <span
-                      className={`font-mono text-xs w-16 text-right ${sd.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}
+                      className={`font-mono text-xs w-16 text-end ${sd.delta >= 0 ? 'text-green-500' : 'text-red-500'}`}
                     >
                       ({sd.deltaPercent >= 0 ? '+' : ''}
                       {sd.deltaPercent.toFixed(2)}%)
@@ -122,7 +105,7 @@ export const MoveAttributionPanel = memo(function MoveAttributionPanel({
         })}
       </div>
 
-      {/* History strip — last N ticks, most-recent on the right */}
+      {/* History strip — last N ticks, most-recent on the end */}
       {history && history.length > 1 && (
         <div className="border-t border-gray-800 pt-3 mt-3">
           <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2">
@@ -152,11 +135,11 @@ const HistoryStrip = memo(function HistoryStrip({ entries }: HistoryStripProps) 
       <table className="text-[11px] font-mono w-full min-w-[320px]">
         <thead>
           <tr>
-            <th className="text-gray-600 font-normal text-left pr-3 py-0.5 w-[90px]">Source</th>
+            <th className="text-gray-600 font-normal text-start pe-3 py-0.5 w-[90px]">Source</th>
             {entries.map((e, i) => (
               <th
                 key={i}
-                className="text-gray-700 font-normal text-right px-1 py-0.5"
+                className="text-gray-700 font-normal text-end px-1 py-0.5"
                 aria-label={`Tick at ${new Date(e.timestamp).toLocaleTimeString()}`}
               >
                 {new Date(e.timestamp).toLocaleTimeString(undefined, {
@@ -171,19 +154,19 @@ const HistoryStrip = memo(function HistoryStrip({ entries }: HistoryStripProps) 
         <tbody>
           {allSources.map((src) => (
             <tr key={src} className="border-t border-gray-800/50">
-              <td className="text-gray-500 pr-3 py-0.5">{src}</td>
+              <td className="text-gray-500 pe-3 py-0.5">{src}</td>
               {entries.map((e, i) => {
                 const sd = e.sources.find((s) => s.source === src)
                 if (!sd) {
                   return (
-                    <td key={i} className="text-gray-700 text-right px-1 py-0.5">
+                    <td key={i} className="text-gray-700 text-end px-1 py-0.5">
                       —
                     </td>
                   )
                 }
                 if (sd.delta === null) {
                   return (
-                    <td key={i} className="text-gray-600 text-right px-1 py-0.5">
+                    <td key={i} className="text-gray-600 text-end px-1 py-0.5">
                       –
                     </td>
                   )
@@ -192,7 +175,7 @@ const HistoryStrip = memo(function HistoryStrip({ entries }: HistoryStripProps) 
                 return (
                   <td
                     key={i}
-                    className={`text-right px-1 py-0.5 ${sd.delta >= 0 ? 'text-green-500' : 'text-red-500'} ${isLeader ? 'font-bold' : ''}`}
+                    className={`text-end px-1 py-0.5 ${sd.delta >= 0 ? 'text-green-500' : 'text-red-500'} ${isLeader ? 'font-bold' : ''}`}
                     title={`${src} Δ ${sd.delta >= 0 ? '+' : ''}${sd.delta.toFixed(4)} at ${new Date(e.timestamp).toLocaleTimeString()}`}
                   >
                     {sd.delta >= 0 ? '+' : ''}
@@ -204,11 +187,11 @@ const HistoryStrip = memo(function HistoryStrip({ entries }: HistoryStripProps) 
           ))}
           {/* Aggregate row */}
           <tr className="border-t border-gray-700">
-            <td className="text-gray-400 pr-3 py-0.5 font-semibold">agg</td>
+            <td className="text-gray-400 pe-3 py-0.5 font-semibold">agg</td>
             {entries.map((e, i) => {
               if (e.delta === null) {
                 return (
-                  <td key={i} className="text-gray-600 text-right px-1 py-0.5">
+                  <td key={i} className="text-gray-600 text-end px-1 py-0.5">
                     –
                   </td>
                 )
@@ -216,7 +199,7 @@ const HistoryStrip = memo(function HistoryStrip({ entries }: HistoryStripProps) 
               return (
                 <td
                   key={i}
-                  className={`text-right px-1 py-0.5 font-semibold ${e.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
+                  className={`text-end px-1 py-0.5 font-semibold ${e.delta >= 0 ? 'text-green-400' : 'text-red-400'}`}
                 >
                   {e.delta >= 0 ? '+' : ''}
                   {e.delta.toFixed(3)}

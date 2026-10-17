@@ -14,6 +14,7 @@ import { memo, useMemo, type ReactElement } from 'react'
 import { Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { formatPriceShort } from '../utils/format'
 import type { SimulatedPoint } from '../utils/alertSimulation'
+import { useIsRtl } from '../hooks/useIsRtl'
 
 interface Props {
   points: SimulatedPoint[]
@@ -45,6 +46,7 @@ function SimTooltip({ active, payload }: SimTooltipProps): ReactElement | null {
 }
 
 export const AlertSimulationChart = memo(function AlertSimulationChart({ points }: Props): ReactElement {
+  const isRtl = useIsRtl()
   const rows = useMemo<Row[]>(() => points.map((p) => ({ idx: p.index, price: p.price })), [points])
   const fired = useMemo(() => points.filter((p) => p.fired), [points])
 
@@ -61,13 +63,21 @@ export const AlertSimulationChart = memo(function AlertSimulationChart({ points 
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
             <XAxis
+              reversed={isRtl}
               dataKey="idx"
               tick={{ fill: '#6b7280', fontSize: 10 }}
               axisLine={{ stroke: '#1f2937' }}
               tickLine={false}
-              label={{ value: 'step', position: 'insideBottomRight', offset: -2, fill: '#6b7280', fontSize: 10 }}
+              label={{
+                value: 'step',
+                position: isRtl ? 'insideBottomLeft' : 'insideBottomRight',
+                offset: -2,
+                fill: '#6b7280',
+                fontSize: 10,
+              }}
             />
             <YAxis
+              orientation={isRtl ? 'right' : 'left'}
               tick={{ fill: '#6b7280', fontSize: 10 }}
               axisLine={false}
               tickLine={false}

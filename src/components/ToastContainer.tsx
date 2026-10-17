@@ -51,13 +51,13 @@ const ACTION_STYLES: Record<ToastType, string> = {
   info: 'text-cyan-400 hover:text-cyan-300 border-cyan-500/40 hover:bg-cyan-500/10',
 }
 
-/** Accent bar on the left edge based on priority */
+/** Accent bar on the start edge based on priority */
 const PRIORITY_ACCENT: Record<ToastPriority, string> = {
   low: '',
   normal: '',
-  high: 'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-amber-400 before:rounded-l-xl',
+  high: 'before:absolute before:start-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-amber-400 before:rounded-s-xl',
   critical:
-    'before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-red-500 before:rounded-l-xl',
+    'before:absolute before:start-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-red-500 before:rounded-s-xl',
 }
 
 function ToastItem({ toast, index }: { toast: Toast; index: number }) {
@@ -161,7 +161,7 @@ function ToastItem({ toast, index }: { toast: Toast; index: number }) {
 
       {/* Action buttons */}
       {toast.actions && toast.actions.length > 0 && (
-        <div className="flex items-center gap-2 pl-8">
+        <div className="flex items-center gap-2 ps-8">
           {toast.actions.slice(0, 2).map((action, i) => (
             <button
               key={i}
@@ -198,7 +198,7 @@ export function ToastContainer(): ReactElement | null {
   return createPortal(
     <div
       aria-label="Notifications"
-      className="fixed bottom-4 right-4 z-[9998] flex flex-col-reverse gap-2 items-end pointer-events-none"
+      className="fixed bottom-4 end-4 z-[9998] flex flex-col-reverse gap-2 items-end pointer-events-none"
     >
       {/* Clear all button when multiple toasts */}
       {toasts.length > 1 && (

@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import type { PriceHistoryEntry } from '../types'
 import type { AggregationBreakdown } from '../types/price'
 import type { RasterizedChart } from './chartExport'
+import { getChartPalette, type ChartPalette } from './chartTheme'
 
 export interface ExportPriceHistoryPdfOptions {
   pair: string
@@ -10,6 +11,8 @@ export interface ExportPriceHistoryPdfOptions {
   filename: string
   /** Optional aggregation breakdown to append as a dedicated page (#459). */
   breakdown?: AggregationBreakdown | null
+  /** Active chart palette; PDF tables and the rasterized chart share these theme tokens. */
+  palette?: ChartPalette
 }
 
 const MARGIN = 12
@@ -20,17 +23,32 @@ function isoTs(ts: number): string {
   return new Date(ts).toISOString()
 }
 
-function drawTableHeader(doc: jsPDF, pair: string, colX: Record<string, number>): void {
+function rgb(hex: string): [number, number, number] {
+  const value = hex.slice(1)
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ]
+}
+
+function fillPage(doc: jsPDF, palette: ChartPalette): void {
+  const [red, green, blue] = rgb(palette.background)
+  doc.setFillColor(red, green, blue)
+  doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), 'F')
+}
+
+function drawTableHeader(doc: jsPDF, pair: string, colX: Record<string, number>, palette: ChartPalette): void {
   const pageWidth = doc.internal.pageSize.getWidth()
   doc.setFontSize(14)
-  doc.setTextColor(20)
+  doc.setTextColor(...rgb(palette.foreground))
   doc.text(`${pair} Price Report`, MARGIN, 14)
   doc.setFontSize(8)
-  doc.setTextColor(110)
+  doc.setTextColor(...rgb(palette.muted))
   doc.text(`Generated ${new Date().toLocaleString()} · Source: Stellar Unified Price Oracle`, MARGIN, 20)
 
   doc.setFontSize(9)
-  doc.setTextColor(60)
+  doc.setTextColor(...rgb(palette.foreground))
   doc.setFont('helvetica', 'bold')
   doc.text('Asset Pair', colX.assetPair, TABLE_TOP)
   doc.text('Price', colX.price, TABLE_TOP)
@@ -38,18 +56,18 @@ function drawTableHeader(doc: jsPDF, pair: string, colX: Record<string, number>)
   doc.text('Confidence', colX.confidence, TABLE_TOP)
   doc.text('Sources', colX.sources, TABLE_TOP)
   doc.setFont('helvetica', 'normal')
-  doc.setDrawColor(210)
+  doc.setDrawColor(...rgb(palette.border))
   doc.line(MARGIN, TABLE_TOP + 2, pageWidth - MARGIN, TABLE_TOP + 2)
 }
 
-function addFootersAndPageNumbers(doc: jsPDF, label: string): void {
+function addFootersAndPageNumbers(doc: jsPDF, label: string, palette: ChartPalette): void {
   const pageCount = doc.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     const width = doc.internal.pageSize.getWidth()
     const height = doc.internal.pageSize.getHeight()
     doc.setFontSize(8)
-    doc.setTextColor(130)
+    doc.setTextColor(...rgb(palette.muted))
     doc.text(`Page ${i} of ${pageCount}`, width - MARGIN, height - 6, { align: 'right' })
     doc.text(label, MARGIN, height - 6)
   }
@@ -62,7 +80,14 @@ function addFootersAndPageNumbers(doc: jsPDF, label: string): void {
  * When `breakdown` is provided an additional portrait page is appended showing
  * the per-source aggregation breakdown table (#459).
  */
-export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdown }: ExportPriceHistoryPdfOptions): void {
+export function exportPriceHistoryPdf({
+  pair,
+  history,
+  chart,
+  filename,
+  breakdown,
+  palette = getChartPalette('light'),
+}: ExportPriceHistoryPdfOptions): void {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   doc.setProperties({
     title: `${pair} Price Report`,
@@ -82,15 +107,17 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
   }
   const sourcesColWidth = pageWidth - MARGIN - colX.sources
 
-  drawTableHeader(doc, pair, colX)
+  fillPage(doc, palette)
+  drawTableHeader(doc, pair, colX, palette)
   let y = TABLE_TOP + ROW_HEIGHT + 2
   doc.setFontSize(8)
-  doc.setTextColor(40)
+  doc.setTextColor(...rgb(palette.foreground))
 
   for (const entry of history) {
     if (y > pageHeight - MARGIN - 4) {
       doc.addPage('a4', 'landscape')
-      drawTableHeader(doc, pair, colX)
+      fillPage(doc, palette)
+      drawTableHeader(doc, pair, colX, palette)
       y = TABLE_TOP + ROW_HEIGHT + 2
     }
     doc.text(pair, colX.assetPair, y)
@@ -102,16 +129,17 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
   }
 
   if (history.length === 0) {
-    doc.setTextColor(130)
+    doc.setTextColor(...rgb(palette.muted))
     doc.text('No price history available for this range.', MARGIN, y)
   }
 
   if (chart) {
     doc.addPage('a4', 'portrait')
+    fillPage(doc, palette)
     const pw = doc.internal.pageSize.getWidth()
     const ph = doc.internal.pageSize.getHeight()
     doc.setFontSize(14)
-    doc.setTextColor(20)
+    doc.setTextColor(...rgb(palette.foreground))
     doc.text(`${pair} Price Chart`, MARGIN, 14)
 
     const maxWidth = pw - MARGIN * 2
@@ -129,14 +157,15 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
   // Aggregation breakdown page (#459)
   if (breakdown) {
     doc.addPage('a4', 'portrait')
+    fillPage(doc, palette)
     const pw = doc.internal.pageSize.getWidth()
 
     doc.setFontSize(14)
-    doc.setTextColor(20)
+    doc.setTextColor(...rgb(palette.foreground))
     doc.text(`${pair} Aggregation Breakdown`, MARGIN, 14)
 
     doc.setFontSize(8)
-    doc.setTextColor(110)
+    doc.setTextColor(...rgb(palette.muted))
     const modeLabel =
       breakdown.mode === 'weighted_mean'
         ? 'Weighted Mean'
@@ -149,7 +178,7 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
     const bdColX = { source: MARGIN, price: MARGIN + 45, weight: MARGIN + 90, contribution: MARGIN + 120, excluded: MARGIN + 160 }
     let by = 28
     doc.setFontSize(9)
-    doc.setTextColor(60)
+    doc.setTextColor(...rgb(palette.foreground))
     doc.setFont('helvetica', 'bold')
     doc.text('Source', bdColX.source, by)
     doc.text('Price', bdColX.price, by)
@@ -157,12 +186,12 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
     doc.text('Contribution', bdColX.contribution, by)
     doc.text('Excluded', bdColX.excluded, by)
     doc.setFont('helvetica', 'normal')
-    doc.setDrawColor(210)
+    doc.setDrawColor(...rgb(palette.border))
     doc.line(MARGIN, by + 2, pw - MARGIN, by + 2)
     by += ROW_HEIGHT + 2
 
     doc.setFontSize(8)
-    doc.setTextColor(40)
+    doc.setTextColor(...rgb(palette.foreground))
     for (const item of breakdown.sources) {
       doc.text(item.source, bdColX.source, by)
       doc.text(`$${item.price.toFixed(6)}`, bdColX.price, by)
@@ -173,11 +202,11 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
     }
 
     // Aggregate total row
-    doc.setDrawColor(180)
+    doc.setDrawColor(...rgb(palette.border))
     doc.line(MARGIN, by, pw - MARGIN, by)
     by += 2
     doc.setFont('helvetica', 'bold')
-    doc.setTextColor(20)
+    doc.setTextColor(...rgb(palette.foreground))
     doc.text('Aggregate', bdColX.source, by)
     doc.text(`$${breakdown.aggregatePrice.toFixed(6)}`, bdColX.price, by)
     doc.text('100%', bdColX.weight, by)
@@ -185,6 +214,6 @@ export function exportPriceHistoryPdf({ pair, history, chart, filename, breakdow
     doc.setFont('helvetica', 'normal')
   }
 
-  addFootersAndPageNumbers(doc, `${pair} · Stellar Unified Price Oracle`)
+  addFootersAndPageNumbers(doc, `${pair} · Stellar Unified Price Oracle`, palette)
   doc.save(filename)
 }

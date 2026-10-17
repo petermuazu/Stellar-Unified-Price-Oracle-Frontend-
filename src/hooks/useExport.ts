@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import type { PriceData } from '../types'
 import { loadExportUtils } from '../utils/deferredExports'
+import { buildMarketSummary } from '../utils/marketSummary'
 import { useRateLimit } from './useRateLimit'
 
 export type ExportFormat = 'csv' | 'json' | 'xlsx'
@@ -10,6 +11,7 @@ export interface UseExportReturn {
   exportJSON: (items: PriceData[], columns?: string[]) => void
   exportXLSX: (items: PriceData[], columns?: string[]) => void
   exportData: (format: ExportFormat, items: PriceData[], columns?: string[]) => void
+  exportMarketSummary: (items: PriceData[], staleThresholdMinutes: number) => Promise<void> | undefined
   /** Whether an export is currently allowed (not rate-limited). */
   exportAllowed: boolean
   /** Seconds until the rate-limit window resets (0 when allowed). */
@@ -73,6 +75,20 @@ export function useExport(): UseExportReturn {
     [consume, runExport],
   )
 
+  const exportMarketSummary = useCallback(
+    (items: PriceData[], staleThresholdMinutes: number): Promise<void> | undefined => {
+      if (!consume()) return undefined
+      return (async () => {
+        const { downloadFile } = await loadExportUtils()
+        const generatedAt = Date.now()
+        const summary = buildMarketSummary(items, generatedAt, staleThresholdMinutes * 60_000)
+        const filenameTime = new Date(generatedAt).toISOString().replace(/[:.]/g, '-')
+        downloadFile(JSON.stringify(summary, null, 2), `market-summary_${filenameTime}.json`, 'application/json')
+      })()
+    },
+    [consume],
+  )
+
   const exportCSV = useCallback(
     (items: PriceData[], columns?: string[]) => exportData('csv', items, columns),
     [exportData],
@@ -88,5 +104,5 @@ export function useExport(): UseExportReturn {
     [exportData],
   )
 
-  return { exportCSV, exportJSON, exportXLSX, exportData, exportAllowed, exportCooldownSec }
+  return { exportCSV, exportJSON, exportXLSX, exportData, exportMarketSummary, exportAllowed, exportCooldownSec }
 }

@@ -1,22 +1,61 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { usePriceContext } from '../context/PriceContext'
-import type { Alert, LivePriceEntry } from '../types'
+import type { Alert, LivePriceEntry, PriceData } from '../types'
 import { getLimiter } from '../utils/rateLimit'
 import { useAlerts, AlertsProvider } from './useAlerts'
+
+const { addToastMock } = vi.hoisted(() => ({ addToastMock: vi.fn() }))
 
 const STORAGE_KEY = 'price-alerts'
 
 vi.mock('../context/PriceContext', () => ({
   usePriceContext: vi.fn(() => ({
     livePrices: new Map(),
+    prices: [],
   })),
 }))
 
-function livePricesMap(pair: string, price: number): Map<string, LivePriceEntry> {
+vi.mock('../context/ToastContext', () => ({
+  useToast: () => ({ addToast: addToastMock }),
+}))
+
+vi.mock('../api/schemas', () => ({
+  AlertsArraySchema: {
+    safeParse: (data: unknown) => ({
+      success: true,
+      data: Array.isArray(data)
+        ? data.map((alert) => ({
+            fireCount: 0,
+            notifyOnRecovery: false,
+            breachActive: false,
+            percentageMode: false,
+            percentageThreshold: null,
+            percentageWindow: null,
+            percentageDirection: null,
+            percentageRelativeTo: null,
+            percentageBaselinePrice: null,
+            percentageBaselineTimestamp: null,
+            snoozedUntil: null,
+            cooldownMinutes: 5,
+            conditionGroup: null,
+            escalationPolicy: null,
+            escalationState: null,
+            channels: null,
+            retestMode: false,
+            retestState: null,
+            ...alert,
+          }))
+        : data,
+    }),
+  },
+  AlertHistoryArraySchema: { safeParse: (data: unknown) => ({ success: true, data }) },
+}))
+
+function livePricesMap(pair: string, price: number, timestamp = Date.now()): Map<string, LivePriceEntry> {
   const map = new Map<string, LivePriceEntry>()
   map.set(pair, {
-    data: { assetPair: pair, price, timestamp: Date.now(), confidence: 1, sources: ['test'] },
+    data: { assetPair: pair, price, timestamp, confidence: 1, sources: ['test'] },
   } as LivePriceEntry)
   return map
 }
@@ -73,11 +112,15 @@ beforeEach(() => {
   // The alert-create rate limiter is a module-level singleton (5/min); reset it
   // so earlier tests in this file don't exhaust the budget for later ones.
   getLimiter('alertCreate').reset()
-  vi.mocked(usePriceContext).mockReturnValue({ livePrices: new Map() } as ReturnType<typeof usePriceContext>)
+  vi.mocked(usePriceContext).mockReturnValue({ livePrices: new Map(), prices: [] } as ReturnType<
+    typeof usePriceContext
+  >)
+  addToastMock.mockClear()
 })
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe('useAlerts', () => {
@@ -104,6 +147,13 @@ describe('useAlerts', () => {
     const { result } = renderHook(() => useAlerts(), { wrapper: AlertsProvider })
     expect(result.current.alerts).toHaveLength(1)
     expect(result.current.activeCount).toBe(1)
+  })
+
+  it('disables an expired rule even when its price feed is unavailable', () => {
+    seedLegacyAlert({ expiresAt: Date.now() - 1 })
+    const { result } = renderHook(() => useAlerts(), { wrapper: AlertsProvider })
+    expect(result.current.alerts[0].active).toBe(false)
+    expect(result.current.alerts[0].expiresAt).toBeLessThan(Date.now())
   })
 
   it('adds an alert', () => {
@@ -190,6 +240,141 @@ describe('useAlerts', () => {
       result.current.addAlert(makeAlertInput({ assetPair: 'ETH/USD', upperThreshold: 4000 }))
     })
     expect(result.current.activeCount).toBe(1)
+  })
+
+  it('records why an active rule check was skipped when no price is available', () => {
+    const { result } = renderHook(() => useAlerts(), { wrapper: AlertsProvider })
+
+    act(() => {
+      result.current.addAlert(makeAlertInput({ upperThreshold: 100 }))
+    })
+
+    expect(result.current.evaluationTimeline[0]).toMatchObject({
+      assetPair: 'BTC/USD',
+      price: null,
+      outcome: 'skipped',
+      reason: 'price_unavailable',
+    })
+  })
+
+  it('notifies on fresh client-observed source participation changes only', () => {
+    const { rerender } = renderHook(() => useAlerts(), { wrapper: AlertsProvider })
+    const snapshot = (sources: string[], timestamp = Date.now()): PriceData => ({
+      assetPair: 'BTC/USD',
+      price: 100,
+      timestamp,
+      confidence: 0.99,
+      sources,
+    })
+
+    act(() => {
+      vi.mocked(usePriceContext).mockReturnValue({
+        livePrices: new Map(),
+        prices: [snapshot(['chainlink'])],
+      } as ReturnType<typeof usePriceContext>)
+      rerender()
+    })
+    expect(addToastMock).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.mocked(usePriceContext).mockReturnValue({
+        livePrices: new Map(),
+        prices: [snapshot(['redstone'])],
+      } as ReturnType<typeof usePriceContext>)
+      rerender()
+    })
+
+    expect(addToastMock).toHaveBeenCalledTimes(2)
+    expect(addToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'warning',
+        message: expect.stringContaining('chainlink is no longer present'),
+      }),
+    )
+    expect(addToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'success',
+        message: expect.stringContaining('redstone is present in a current aggregate again'),
+      }),
+    )
+
+    act(() => {
+      vi.mocked(usePriceContext).mockReturnValue({
+        livePrices: new Map(),
+        prices: [snapshot([], Date.now() - 6 * 60_000)],
+      } as ReturnType<typeof usePriceContext>)
+      rerender()
+    })
+    expect(addToastMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('notifies once when a one-time alert condition clears on the same routed channels', () => {
+    vi.useFakeTimers()
+    const firstTick = Date.now()
+    localStorage.setItem(
+      'notification-channels',
+      JSON.stringify({
+        email: { address: '', enabled: false },
+        webPush: { enabled: false },
+        webhook: { url: 'https://example.test/alerts', enabled: true },
+        telegram: { chatId: '', enabled: false },
+        discord: { channelId: '', enabled: false },
+      }),
+    )
+    seedLegacyAlert({ triggerOnce: true, notifyOnRecovery: true, channels: ['webhook'] })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true } as Response)
+    const currentPriceContext = vi.mocked(usePriceContext)()
+    vi.mocked(usePriceContext).mockReturnValue({
+      ...currentPriceContext,
+      livePrices: livePricesMap('BTC/USD', 150),
+    })
+    const { result, rerender } = renderHook(() => useAlerts(), { wrapper: AlertsProvider })
+
+    expect(result.current.alerts[0].active).toBe(false)
+    expect(result.current.alerts[0].breachActive).toBe(true)
+
+    act(() => {
+      vi.setSystemTime(firstTick + 6 * 60_000)
+      vi.mocked(usePriceContext).mockReturnValue({
+        ...currentPriceContext,
+        livePrices: livePricesMap('BTC/USD', 90, firstTick),
+      })
+      rerender()
+    })
+
+    expect(result.current.alerts[0].breachActive).toBe(true)
+    expect(result.current.evaluationTimeline[0].reason).toBe('stale_price')
+    expect(addToastMock).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.setSystemTime(firstTick + 6 * 60_000 + 1_000)
+      vi.mocked(usePriceContext).mockReturnValue({
+        ...currentPriceContext,
+        livePrices: livePricesMap('BTC/USD', 90),
+      })
+      rerender()
+    })
+
+    expect(result.current.alerts[0].breachActive).toBe(false)
+    expect(result.current.evaluationTimeline[0].reason).toBe('threshold_cleared')
+    expect(addToastMock).toHaveBeenCalledTimes(1)
+    expect(addToastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'success',
+        message: expect.stringContaining('BTC/USD threshold cleared'),
+      }),
+    )
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    const payloads = fetchSpy.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))
+    expect(payloads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'alert_triggered' }),
+        expect.objectContaining({
+          type: 'alert_recovered',
+          message: expect.stringContaining('BTC/USD threshold cleared'),
+        }),
+      ]),
+    )
   })
 
   it('handles invalid localStorage data', () => {

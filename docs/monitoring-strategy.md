@@ -7,6 +7,7 @@ This document outlines the comprehensive monitoring strategy for the Stellar Ora
 ## Monitoring Components
 
 ### 1. Health Check System (IMPLEMENTED)
+
 - **File**: `src/utils/healthCheck.ts` (387 lines)
 - **Endpoints**:
   - `GET /health` — Basic status for load balancers
@@ -22,6 +23,7 @@ This document outlines the comprehensive monitoring strategy for the Stellar Ora
 - **Features**: Parallel checks, cached results, DevTools integration
 
 ### 2. Error Tracking (IMPLEMENTED - See error-reporting.md)
+
 - **Service**: Sentry
 - **Captures**:
   - React component errors
@@ -34,6 +36,7 @@ This document outlines the comprehensive monitoring strategy for the Stellar Ora
 - **Alerts**: Automatic on high-severity errors
 
 ### 3. Frontend Performance Monitoring
+
 - **Core Web Vitals** tracking
 - **Page load timing**
 - **API response times**
@@ -43,6 +46,7 @@ This document outlines the comprehensive monitoring strategy for the Stellar Ora
 - **Memory usage monitoring**
 
 ### 4. Uptime Monitoring
+
 - **Synthetic monitoring** for critical paths
 - **Endpoint availability checks**
 - **Geographic health checks**
@@ -50,6 +54,7 @@ This document outlines the comprehensive monitoring strategy for the Stellar Ora
 - **Certificate expiration alerts**
 
 ### 5. Alerting Strategy
+
 - **Health check failures** → Immediate alert
 - **Error spikes** (>10% error rate) → Alert
 - **Performance degradation** (>5s latency) → Alert
@@ -99,6 +104,7 @@ Monitoring Systems
 ## Implementation Checklist
 
 ### Core Monitoring (DONE)
+
 - [x] Health check system (387 lines)
 - [x] Error tracking via Sentry
 - [x] Version endpoints for CI/CD
@@ -108,6 +114,7 @@ Monitoring Systems
 - [ ] Alert rules and runbooks
 
 ### Health Checks (DONE)
+
 - [x] WebSocket connectivity check
 - [x] REST API availability check
 - [x] IndexedDB storage check
@@ -116,6 +123,7 @@ Monitoring Systems
 - [x] DevTools debugging interface
 
 ### Error Tracking (DONE - see error-reporting.md)
+
 - [x] Sentry initialization
 - [x] React error boundary integration
 - [x] Network error tracking
@@ -124,6 +132,7 @@ Monitoring Systems
 - [x] Breadcrumb logging
 
 ### To Be Implemented
+
 - [ ] Web Vitals monitoring (LCP, FID, CLS)
 - [ ] API latency tracking
 - [ ] Custom metrics dashboard
@@ -184,18 +193,21 @@ curl https://app.stellar.org/health/ready
 ## Monitoring Scenarios
 
 ### Scenario 1: API Outage
+
 - Health check fails: API returns 503
 - Status: "degraded" or "unhealthy"
 - Alert: Immediate via monitoring system
 - Action: Team receives alert, checks status page
 
 ### Scenario 2: WebSocket Disconnect
+
 - Health check fails: WebSocket timeout or connection error
 - Status: "unhealthy"
 - Alert: Multiple users report connection issues
 - Action: Check backend WebSocket server
 
 ### Scenario 3: Performance Degradation
+
 - API latency increases to 5+ seconds
 - Sentry captures performance metrics
 - Health check shows latency > threshold
@@ -203,6 +215,7 @@ curl https://app.stellar.org/health/ready
 - Action: Check database, network, or server load
 
 ### Scenario 4: Storage Issues
+
 - IndexedDB quota exceeded or corrupted
 - LocalStorage unavailable
 - Health check status: "degraded"
@@ -210,6 +223,7 @@ curl https://app.stellar.org/health/ready
 - Action: Users notified to clear cache
 
 ### Scenario 5: Error Spike
+
 - 15% of requests return errors
 - Sentry aggregates errors
 - Alert threshold exceeded
@@ -217,41 +231,46 @@ curl https://app.stellar.org/health/ready
 
 ## Alerting Thresholds
 
-| Metric | Warning | Critical |
-|--------|---------|----------|
-| Error Rate | 5% | 10% |
-| Response Time | 3s | 5s |
-| WebSocket Success | 90% | 95% |
-| Storage Available | 90% | 50% |
-| Uptime | 99% | 95% |
+| Metric                | Warning       | Critical      |
+| --------------------- | ------------- | ------------- |
+| Error Rate            | 5%            | 10%           |
+| Response Time         | 3s            | 5s            |
+| WebSocket Success     | 90%           | 95%           |
+| Storage Available     | 90%           | 50%           |
+| Uptime                | 99%           | 95%           |
 | Health Check Failures | 2 consecutive | 3 consecutive |
 
 ## Integration Points
 
 ### Vercel / CDN
+
 - Health endpoints accessible
 - Auto-scale on health failures
 - Certificate monitoring
 
 ### Kubernetes (if deployed)
+
 - Liveness probes: `/health/live`
 - Readiness probes: `/health/ready`
 - Auto-restart on failure
 - Pod termination on health failure
 
 ### Monitoring Systems
+
 - DataDog / New Relic / CloudWatch
 - Scrape `/health/detailed` every 60s
 - Alert on status changes
 - Dashboard visualization
 
 ### Sentry
+
 - Real-time error tracking
 - Automated alerts
 - Session replay on errors
 - Performance monitoring
 
 ### Uptime Monitoring
+
 - UptimeRobot / Pingdom
 - Monitor `/health` endpoint
 - Geographic checks
@@ -293,6 +312,7 @@ Recommended monitoring dashboard should show:
 ## Runbooks
 
 ### Health Check Failure
+
 1. Check `/health/detailed` for specific failures
 2. Verify backend API is running
 3. Check network connectivity
@@ -301,6 +321,7 @@ Recommended monitoring dashboard should show:
 6. If unhealthy: Major issue, page on-call
 
 ### Error Spike
+
 1. Check Sentry dashboard
 2. Identify error pattern
 3. Review recent deployments
@@ -309,6 +330,7 @@ Recommended monitoring dashboard should show:
 6. If data issue: Deploy fix
 
 ### Performance Degradation
+
 1. Check API response times
 2. Monitor server resources
 3. Check database performance
@@ -342,4 +364,22 @@ Recommended monitoring dashboard should show:
 ✅ Team alerted of outages in real-time  
 ✅ < 1 minute to triage and respond  
 ✅ Monitoring covers 100% of critical paths  
-✅ False alarm rate < 5%  
+✅ False alarm rate < 5%
+
+## Per-pair subscription health
+
+The dashboard reports subscription health for each displayed asset pair using
+the local receipt time of that pair's latest realtime update. This is independent
+of the global transport badge: a connected socket with no update for a pair is
+shown as waiting, and a pair without a local update for two minutes is stale.
+Disconnected transports are unavailable; cached offline prices are identified
+as an offline snapshot rather than as live subscription data.
+The offline banner shows the saved snapshot's advancing age and an accessible
+manual refresh control; refresh errors remain visible through the dashboard's
+existing request-error alert while cached values stay on screen.
+
+These indicators do not infer upstream subscription acknowledgements or oracle
+health. The current WebSocket contract has no per-pair subscribe acknowledgement,
+so the UI only reports observed client-side updates. A backend acknowledgement
+would be needed to distinguish an accepted subscription with no price change
+from a subscription request the server did not accept.

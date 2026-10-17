@@ -5,6 +5,7 @@ import { usePriceContext } from '../context/PriceContext'
 import {
   REFRESH_INTERVAL_OPTIONS,
   CHART_RANGE_OPTIONS,
+  CHART_HISTORY_PAGE_SIZE_OPTIONS,
   STALE_THRESHOLD_OPTIONS,
   CHART_TIMEZONE_OPTIONS,
   FORMAT_LOCALE_OPTIONS,
@@ -13,6 +14,7 @@ import { SUPPORTED_LANGUAGES, LANGUAGE_LABELS, type SupportedLanguage } from '..
 import { clearAllData, getLocalStorageSize, writeRaw, STORAGE_KEYS } from '../utils/storage'
 import { loadSoundPreferences, saveSoundPreferences } from '../utils/soundPreferences'
 import { playAlertSound, unlockAudioContext } from '../utils/alertSound'
+import { useIsRtl } from '../hooks/useIsRtl'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -29,6 +31,7 @@ function AccessibilityToggle({
   checked: boolean
   onChange: (val: boolean) => void
 }) {
+  const isRtl = useIsRtl()
   return (
     <label className="flex items-start gap-3 cursor-pointer group">
       <div className="relative mt-0.5 flex-shrink-0">
@@ -43,8 +46,8 @@ function AccessibilityToggle({
           className={`w-10 h-5 rounded-full transition-colors duration-200 ${checked ? 'bg-cyan-500' : 'bg-gray-700'}`}
         />
         <div
-          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
-            checked ? 'translate-x-5' : 'translate-x-0'
+          className={`absolute top-0.5 start-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${
+            checked ? (isRtl ? '-translate-x-5' : 'translate-x-5') : 'translate-x-0'
           }`}
         />
       </div>
@@ -115,7 +118,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): ReactElement {
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} role="presentation" />
-      <div className="relative w-full max-w-md bg-gray-900 border-l border-gray-800 h-full overflow-y-auto shadow-xl">
+      <div className="relative w-full max-w-md bg-gray-900 border-s border-gray-800 h-full overflow-y-auto shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <h2 className="text-lg font-semibold text-white">{t('settings.title')}</h2>
           <button
@@ -184,6 +187,28 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): ReactElement {
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                 >
                   {REFRESH_INTERVAL_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  {t('settings.fields.chartHistoryPageSize')}
+                </label>
+                <select
+                  value={preferences.chartHistoryPageSize}
+                  onChange={(e) =>
+                    updatePreference(
+                      'chartHistoryPageSize',
+                      Number(e.target.value) as typeof preferences.chartHistoryPageSize,
+                    )
+                  }
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  {CHART_HISTORY_PAGE_SIZE_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -457,7 +482,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): ReactElement {
                 />
               </svg>
               {t('settings.actions.undo')}
-              <span className="text-xs text-gray-500 ml-1">{t('settings.actions.undoShortcut')}</span>
+              <span className="text-xs text-gray-500 ms-1">{t('settings.actions.undoShortcut')}</span>
             </button>
             <button
               onClick={redo}
@@ -474,11 +499,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): ReactElement {
                 />
               </svg>
               {t('settings.actions.redo')}
-              <span className="text-xs text-gray-500 ml-1">{t('settings.actions.redoShortcut')}</span>
+              <span className="text-xs text-gray-500 ms-1">{t('settings.actions.redoShortcut')}</span>
             </button>
             <button
               onClick={clearHistory}
-              className="ml-auto px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+              className="ms-auto px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
               aria-label={t('settings.actions.clearAriaLabel')}
             >
               {t('settings.actions.clear')}

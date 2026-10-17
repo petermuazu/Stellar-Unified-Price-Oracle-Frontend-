@@ -15,9 +15,11 @@ const DEFAULT_CONFIG: PriceAnnouncerConfig = {
   maxAnnouncementsPerBatch: 3,
 }
 
+const EMPTY_CONFIG: Partial<PriceAnnouncerConfig> = {}
+
 interface PriceChangeInfo {
   pair: string
-  oldPrice: number
+  previousPrice: number
   newPrice: number
   percentChange: number
 }
@@ -26,13 +28,16 @@ interface PriceChangeInfo {
  * Hook for announcing significant price changes to screen readers.
  * Only announces prices that meet the configured thresholds.
  */
-export function usePriceAnnouncer(prices: PriceData[] | undefined, config: Partial<PriceAnnouncerConfig> = {}): void {
+export function usePriceAnnouncer(
+  prices: PriceData[] | undefined,
+  config: Partial<PriceAnnouncerConfig> = EMPTY_CONFIG,
+): void {
   const { announce } = useAnnounce({
     deduplicationMs: (config.deduplicationMs ?? DEFAULT_CONFIG.deduplicationMs) * 2,
   })
 
-  const prevPricesRef = useRef<Map<string, number>>(new Map())
-  const lastAnnouncedRef = useRef<Map<string, number>>(new Map())
+  const lastAnnouncedPriceRef = useRef<Map<string, number>>(new Map())
+  const lastAnnouncedAtRef = useRef<Map<string, number>>(new Map())
 
   const mergedConfig = useMemo(() => ({ ...DEFAULT_CONFIG, ...config }), [config])
 
@@ -42,31 +47,31 @@ export function usePriceAnnouncer(prices: PriceData[] | undefined, config: Parti
     const changes: PriceChangeInfo[] = []
 
     for (const price of prices) {
-      const oldPrice = prevPricesRef.current.get(price.assetPair)
-      if (oldPrice === undefined) {
-        prevPricesRef.current.set(price.assetPair, price.price)
+      if (!Number.isFinite(price.price) || price.price <= 0) continue
+
+      const previousPrice = lastAnnouncedPriceRef.current.get(price.assetPair)
+      if (previousPrice === undefined) {
+        lastAnnouncedPriceRef.current.set(price.assetPair, price.price)
         continue
       }
 
-      if (oldPrice === price.price) continue
+      if (price.price === previousPrice) continue
 
-      const percentChange = Math.abs((price.price - oldPrice) / oldPrice) * 100
+      const percentChange = Math.abs((price.price - previousPrice) / previousPrice) * 100
 
       if (percentChange >= mergedConfig.minPercentageChange) {
-        const lastAnnounced = lastAnnouncedRef.current.get(price.assetPair)
+        const lastAnnouncedAt = lastAnnouncedAtRef.current.get(price.assetPair)
         const now = Date.now()
-        if (lastAnnounced === undefined || now - lastAnnounced >= mergedConfig.deduplicationMs) {
+        if (lastAnnouncedAt === undefined || now - lastAnnouncedAt >= mergedConfig.deduplicationMs) {
           changes.push({
             pair: price.assetPair,
-            oldPrice,
+            previousPrice,
             newPrice: price.price,
             percentChange,
           })
-          lastAnnouncedRef.current.set(price.assetPair, now)
+          lastAnnouncedAtRef.current.set(price.assetPair, now)
         }
       }
-
-      prevPricesRef.current.set(price.assetPair, price.price)
     }
 
     if (changes.length > 0) {
@@ -74,9 +79,10 @@ export function usePriceAnnouncer(prices: PriceData[] | undefined, config: Parti
       const toAnnounce = sorted.slice(0, mergedConfig.maxAnnouncementsPerBatch)
 
       toAnnounce.forEach((change) => {
-        const direction = change.newPrice > change.oldPrice ? 'up' : 'down'
+        const direction = change.newPrice > change.previousPrice ? 'up' : 'down'
         const msg = `${change.pair} moved ${direction} to ${formatPrice(change.newPrice)}, ${change.percentChange.toFixed(1)}% change`
         announce(msg, 'polite')
+        lastAnnouncedPriceRef.current.set(change.pair, change.newPrice)
       })
     }
   }, [prices, mergedConfig, announce])

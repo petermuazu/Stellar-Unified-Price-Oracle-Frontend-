@@ -18,7 +18,8 @@
  * ## Exposed controls
  * | Control           | Preference key          | Options                     |
  * |-------------------|-------------------------|-----------------------------|
- * | Refresh interval  | `refreshInterval`       | 5 s, 10 s, 30 s, 60 s      |
+ * | Refresh interval  | `refreshInterval`       | 5 s, 10 s, 30 s, 1 min, 5 min |
+ * | History page size | `chartHistoryPageSize`  | 50, 100, 250 points        |
  * | Chart time range  | `chartTimeRange`        | 1 h, 6 h, 24 h, 7 d, 30 d  |
  * | Stale threshold   | `staleThresholdMinutes` | 1, 2, 5, 10, 30 min         |
  * | Divergence threshold | `onChainDivergenceThresholdPercent` | 0.5%, 1%, 2%, 5% |
@@ -48,6 +49,7 @@ import { usePreferences } from '../preferences/PreferencesContext'
 import {
   REFRESH_INTERVAL_OPTIONS,
   CHART_RANGE_OPTIONS,
+  CHART_HISTORY_PAGE_SIZE_OPTIONS,
   STALE_THRESHOLD_OPTIONS,
   DIVERGENCE_THRESHOLD_OPTIONS,
 } from '../preferences/constants'
@@ -102,6 +104,27 @@ export const PreferencesPanel = memo(function PreferencesPanel() {
           }
         >
           {CHART_RANGE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* History points per request */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="chart-history-page-size" className="text-sm font-medium text-gray-200">
+          Chart history points per page
+        </label>
+        <select
+          id="chart-history-page-size"
+          className="rounded bg-slate-800 px-3 py-2 text-sm text-gray-100"
+          value={preferences.chartHistoryPageSize}
+          onChange={(e) =>
+            updatePreference('chartHistoryPageSize', Number(e.target.value) as Preferences['chartHistoryPageSize'])
+          }
+        >
+          {CHART_HISTORY_PAGE_SIZE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

@@ -26,7 +26,7 @@
  *
  * ## Edge cases
  * - **Empty state** — when no alerts exist, an "Add your first alert" prompt is shown.
- * - **Snoozed with elapsed time** — if the app is left open past a snooze window,
+ * - **Snoozed with elapsed time** — if the app is start open past a snooze window,
  *   the alert is reclassified on the next render.
  * - **`isPanelOpen = false`** — component returns `null`; no DOM is rendered.
  *
@@ -35,15 +35,17 @@
  * - The snooze dropdown uses standard `<button>` elements inside a `<div>`.
  * - Tab switching buttons carry `role="tab"` and `aria-selected` attributes.
  */
-import { useState, useCallback, type ReactElement } from 'react'
+import { useState, useCallback, useEffect, type ReactElement } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAlerts } from '../hooks/useAlerts'
 import { formatPrice } from '../utils/format'
 import type { Alert, AlertSnoozeDuration } from '../types'
 import { computeAlertStats, alertStatsToExportRow } from '../utils/alertAnalytics'
 import { toCsv, downloadFile } from '../utils/export'
+import { isAlertExpired, localDateToTimestamp } from '../utils/alertLifecycle'
 import { useAlertHealth } from '../hooks/useAlertHealth'
 import type { AlertHealthFlag } from '../utils/alertHealthCheck'
+import { deliveryTracker, type DeliveryReceipt } from '../services/deliveryReceipts'
 import { AlertHistoryLog } from './AlertHistoryLog'
 import { AlertAnalyticsStrip } from './AlertAnalyticsStrip'
 
@@ -63,6 +65,66 @@ function RoutingBadge({ alert }: { alert: Alert }): ReactElement | null {
         </span>
       ))}
     </div>
+  )
+}
+
+export function DeliveryAttempts({ alertId }: { alertId: string }): ReactElement {
+  const { t } = useTranslation()
+  const [receipts, setReceipts] = useState<DeliveryReceipt[]>(() => deliveryTracker.getReceipts({ alertId }))
+
+  useEffect(() => {
+    const refresh = () => setReceipts(deliveryTracker.getReceipts({ alertId }))
+    refresh()
+    return deliveryTracker.subscribe(refresh)
+  }, [alertId])
+
+  return (
+    <section className="mt-2" aria-label={t('alertPanel.delivery.title')}>
+      <h3 className="text-[10px] font-semibold text-gray-500">{t('alertPanel.delivery.title')}</h3>
+      {receipts.length === 0 ? (
+        <p className="text-[10px] text-gray-500 mt-0.5">{t('alertPanel.delivery.empty')}</p>
+      ) : (
+        <ul className="space-y-1 mt-0.5">
+          {receipts.map((receipt) => (
+            <li key={receipt.channel} className="text-[10px] text-gray-400">
+              <div className="flex flex-wrap gap-x-2">
+                <span>{t(`alertModal.escalation.channel_${receipt.channel}`)}</span>
+                <span
+                  className={
+                    receipt.status === 'delivered'
+                      ? 'text-emerald-400'
+                      : receipt.status === 'failed'
+                        ? 'text-red-400'
+                        : 'text-amber-400'
+                  }
+                >
+                  {t(`alertPanel.delivery.status_${receipt.status}`)}
+                </span>
+                <span>{t('alertPanel.delivery.attemptCount', { count: receipt.attempts })}</span>
+              </div>
+              {receipt.attemptHistory.length > 0 && (
+                <ol className="ml-2 mt-0.5 space-y-0.5">
+                  {receipt.attemptHistory.map((attempt) => (
+                    <li key={`${receipt.channel}-${attempt.attempt}`}>
+                      <time dateTime={new Date(attempt.updatedAt).toISOString()}>
+                        {new Date(attempt.updatedAt).toLocaleTimeString()}
+                      </time>
+                      {' · '}
+                      {attempt.status === 'delivered'
+                        ? t('alertPanel.delivery.attemptDelivered', { attempt: attempt.attempt })
+                        : t('alertPanel.delivery.attemptFailed', {
+                            attempt: attempt.attempt,
+                            error: attempt.error ?? t('alertPanel.delivery.unknownError'),
+                          })}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -119,6 +181,46 @@ function RetestBadge({ alert }: { alert: Alert }): ReactElement | null {
           ? t('alertPanel.retest.exited')
           : t('alertPanel.retest.idle')}
     </span>
+  )
+}
+
+function LifecycleBadges({ alert, now }: { alert: Alert; now: number }): ReactElement | null {
+  const { t } = useTranslation()
+  const expired = isAlertExpired(alert.expiresAt, now)
+  const reviewDue = alert.reviewAt !== null && alert.reviewAt !== undefined && alert.reviewAt <= now
+  if (
+    !expired &&
+    !reviewDue &&
+    (alert.expiresAt === null || alert.expiresAt === undefined) &&
+    (alert.reviewAt === null || alert.reviewAt === undefined)
+  )
+    return null
+
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5" aria-label={t('alertPanel.lifecycle.title')}>
+      {alert.expiresAt !== null && alert.expiresAt !== undefined && (
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+            expired ? 'bg-red-500/20 text-red-300' : 'bg-gray-800 text-gray-400'
+          }`}
+        >
+          {expired
+            ? t('alertPanel.lifecycle.expired')
+            : t('alertPanel.lifecycle.expiresOn', { date: new Date(alert.expiresAt).toLocaleDateString() })}
+        </span>
+      )}
+      {alert.reviewAt !== null && alert.reviewAt !== undefined && (
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+            reviewDue ? 'bg-amber-500/20 text-amber-300' : 'bg-gray-800 text-gray-400'
+          }`}
+        >
+          {reviewDue
+            ? t('alertPanel.lifecycle.reviewDue')
+            : t('alertPanel.lifecycle.reviewOn', { date: new Date(alert.reviewAt).toLocaleDateString() })}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -186,6 +288,7 @@ export function AlertPanel(): ReactElement | null {
     alertHistory,
     removeAlert,
     updateAlert,
+    updateAlerts,
     markAsRead,
     isPanelOpen,
     togglePanel,
@@ -195,9 +298,22 @@ export function AlertPanel(): ReactElement | null {
   } = useAlerts()
   const { t } = useTranslation()
   const [snoozeOpenId, setSnoozeOpenId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'alerts' | 'history'>('alerts')
+  const [activeTab, setActiveTab] = useState<'alerts' | 'history' | 'archived'>('alerts')
+  const [now, setNow] = useState(() => Date.now())
+  const [selectedAlertIds, setSelectedAlertIds] = useState<Set<string>>(() => new Set())
+  const [bulkEditorOpen, setBulkEditorOpen] = useState(false)
+  const [applyExpiryDate, setApplyExpiryDate] = useState(false)
+  const [applyReviewDate, setApplyReviewDate] = useState(false)
+  const [bulkExpiryDate, setBulkExpiryDate] = useState('')
+  const [bulkReviewDate, setBulkReviewDate] = useState('')
+  const [bulkDateError, setBulkDateError] = useState('')
   // #493 – never-firing misconfiguration flags for active alerts.
   const { flags: healthFlags, dismiss: dismissHealthFlag } = useAlertHealth(alerts)
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(interval)
+  }, [])
 
   const handleExportAnalytics = useCallback(() => {
     const HEADERS = ['alertId', 'fireCount', 'avgTimeToFire', 'maxTimeToFire', 'hitRatePerDay', 'thresholdHint']
@@ -209,16 +325,17 @@ export function AlertPanel(): ReactElement | null {
 
   if (!isPanelOpen) return null
 
-  const now = Date.now()
-  const snoozedAlerts = alerts.filter((a) => a.snoozedUntil !== null && a.snoozedUntil > now)
-  const triggeredAlerts = alerts.filter(
+  const visibleAlerts = alerts.filter((alert) => !alert.archived)
+  const archivedAlerts = alerts.filter((alert) => alert.archived)
+  const snoozedAlerts = visibleAlerts.filter((a) => a.snoozedUntil !== null && a.snoozedUntil > now)
+  const triggeredAlerts = visibleAlerts.filter(
     (a) => a.lastTriggeredAt !== null && (a.snoozedUntil === null || a.snoozedUntil <= now),
   )
-  const activeAlerts = alerts.filter(
+  const activeAlerts = visibleAlerts.filter(
     (a) => a.active && a.lastTriggeredAt === null && (a.snoozedUntil === null || a.snoozedUntil <= now),
   )
-  const firedOnceAlerts = alerts.filter((a) => !a.active && a.triggerOnce && a.lastTriggeredAt !== null)
-  const inactiveAlerts = alerts.filter(
+  const firedOnceAlerts = visibleAlerts.filter((a) => !a.active && a.triggerOnce && a.lastTriggeredAt !== null)
+  const inactiveAlerts = visibleAlerts.filter(
     (a) => !a.active && a.lastTriggeredAt === null && (a.snoozedUntil === null || a.snoozedUntil <= now),
   )
 
@@ -243,7 +360,9 @@ export function AlertPanel(): ReactElement | null {
   }
 
   const toggleAlert = (id: string, currentActive: boolean): void => {
-    updateAlert(id, { active: !currentActive })
+    const alert = alerts.find((item) => item.id === id)
+    const resumesExpiredRule = !currentActive && isAlertExpired(alert?.expiresAt, Date.now())
+    updateAlert(id, { active: !currentActive, ...(resumesExpiredRule ? { expiresAt: null } : {}) })
   }
 
   const formatSnoozeExpiry = (snoozedUntil: number): string => {
@@ -260,10 +379,41 @@ export function AlertPanel(): ReactElement | null {
     setSnoozeOpenId(null)
   }
 
+  const handleBulkDateSave = (event: React.FormEvent<HTMLFormElement>): void => {
+    event.preventDefault()
+    const updates: Partial<Alert> = {}
+    if (applyExpiryDate) {
+      const expiresAt = localDateToTimestamp(bulkExpiryDate, true)
+      if (bulkExpiryDate && expiresAt === null) {
+        setBulkDateError(t('alertModal.validation.invalidDate'))
+        return
+      }
+      updates.expiresAt = expiresAt
+      if (expiresAt !== null && isAlertExpired(expiresAt, now)) updates.active = false
+    }
+    if (applyReviewDate) {
+      const reviewAt = localDateToTimestamp(bulkReviewDate)
+      if (bulkReviewDate && reviewAt === null) {
+        setBulkDateError(t('alertModal.validation.invalidDate'))
+        return
+      }
+      updates.reviewAt = reviewAt
+    }
+    updateAlerts([...selectedAlertIds], updates)
+    setBulkDateError('')
+    setBulkEditorOpen(false)
+  }
+
+  const archiveSelected = (): void => {
+    updateAlerts([...selectedAlertIds], { archived: true, active: false })
+    setSelectedAlertIds(new Set())
+    setBulkEditorOpen(false)
+  }
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={togglePanel} aria-hidden="true" />
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-sm bg-gray-900 border-l border-gray-800 shadow-2xl flex flex-col overflow-hidden transform transition-transform">
+      <div className="fixed inset-y-0 end-0 z-50 w-full max-w-sm bg-gray-900 border-s border-gray-800 shadow-2xl flex flex-col overflow-hidden transform transition-transform">
         <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-900/80 backdrop-blur">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             {t('alertPanel.title')}
@@ -284,7 +434,7 @@ export function AlertPanel(): ReactElement | null {
           </button>
         </div>
 
-        {/* Alerts / History tabs (#309) */}
+        {/* Alerts / History / Archived tabs */}
         <div className="flex gap-1 p-2 border-b border-gray-800" role="tablist">
           <button
             type="button"
@@ -311,6 +461,19 @@ export function AlertPanel(): ReactElement | null {
             }`}
           >
             {t('alertPanel.tabs.history')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'archived'}
+            onClick={() => setActiveTab('archived')}
+            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === 'archived'
+                ? 'bg-cyan-500/20 text-cyan-400'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+            }`}
+          >
+            {t('alertPanel.tabs.archived')}
           </button>
         </div>
 
@@ -344,7 +507,29 @@ export function AlertPanel(): ReactElement | null {
               )}
               <AlertHistoryLog />
             </>
-          ) : alerts.length === 0 ? (
+          ) : activeTab === 'archived' ? (
+            archivedAlerts.length === 0 ? (
+              <p className="text-center py-12 text-gray-500">{t('alertPanel.bulk.archivedEmpty')}</p>
+            ) : (
+              <section aria-label={t('alertPanel.tabs.archived')} className="space-y-3">
+                {archivedAlerts.map((alert) => (
+                  <div key={alert.id} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                    <p className="font-semibold text-white text-sm">{alert.assetPair}</p>
+                    <p className="text-xs text-gray-400 font-mono mt-1">{getConditionText(alert)}</p>
+                    <LifecycleBadges alert={alert} now={now} />
+                    <DeliveryAttempts alertId={alert.id} />
+                    <button
+                      type="button"
+                      onClick={() => updateAlert(alert.id, { archived: false, active: false })}
+                      className="mt-3 text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"
+                    >
+                      {t('alertPanel.bulk.restore')}
+                    </button>
+                  </div>
+                ))}
+              </section>
+            )
+          ) : visibleAlerts.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <svg
                 className="w-12 h-12 mx-auto mb-3 text-gray-700"
@@ -363,6 +548,139 @@ export function AlertPanel(): ReactElement | null {
             </div>
           ) : (
             <>
+              <section className="p-3 bg-gray-800/50 border border-gray-700 rounded-xl space-y-3">
+                <details>
+                  <summary className="cursor-pointer text-sm text-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded">
+                    {t('alertPanel.bulk.selectRules', { count: selectedAlertIds.size })}
+                  </summary>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAlertIds(new Set(visibleAlerts.map((alert) => alert.id)))}
+                      className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                    >
+                      {t('alertPanel.bulk.selectAll')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAlertIds(new Set())}
+                      className="text-xs text-gray-400 hover:text-gray-200 underline"
+                    >
+                      {t('alertPanel.bulk.clearSelection')}
+                    </button>
+                  </div>
+                  <fieldset className="mt-3 max-h-40 overflow-y-auto space-y-2">
+                    <legend className="sr-only">
+                      {t('alertPanel.bulk.selectRules', { count: visibleAlerts.length })}
+                    </legend>
+                    {visibleAlerts.map((alert) => (
+                      <label key={alert.id} className="flex items-center gap-2 text-xs text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={selectedAlertIds.has(alert.id)}
+                          onChange={(event) =>
+                            setSelectedAlertIds((selected) => {
+                              const next = new Set(selected)
+                              if (event.target.checked) next.add(alert.id)
+                              else next.delete(alert.id)
+                              return next
+                            })
+                          }
+                          className="rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500"
+                        />
+                        <span>{alert.assetPair}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                </details>
+                {selectedAlertIds.size > 0 && (
+                  <div className="flex flex-wrap gap-2 border-t border-gray-700 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => updateAlerts([...selectedAlertIds], { active: false })}
+                      className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"
+                    >
+                      {t('alertPanel.bulk.pause')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBulkEditorOpen((open) => !open)}
+                      aria-expanded={bulkEditorOpen}
+                      className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg"
+                    >
+                      {t('alertPanel.bulk.editDates')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={archiveSelected}
+                      className="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 px-3 py-1.5 rounded-lg"
+                    >
+                      {t('alertPanel.bulk.archive')}
+                    </button>
+                  </div>
+                )}
+                {bulkEditorOpen && selectedAlertIds.size > 0 && (
+                  <form onSubmit={handleBulkDateSave} className="border-t border-gray-700 pt-3 space-y-3">
+                    <label className="flex items-center gap-2 text-xs text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={applyExpiryDate}
+                        onChange={(event) => setApplyExpiryDate(event.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500"
+                      />
+                      {t('alertPanel.bulk.applyExpiry')}
+                    </label>
+                    <input
+                      type="date"
+                      aria-label={t('alertModal.lifecycle.expiryLabel')}
+                      value={bulkExpiryDate}
+                      disabled={!applyExpiryDate}
+                      onChange={(event) => setBulkExpiryDate(event.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50"
+                    />
+                    <p className="text-[11px] text-gray-500">{t('alertPanel.bulk.expiryHelp')}</p>
+                    <label className="flex items-center gap-2 text-xs text-gray-300">
+                      <input
+                        type="checkbox"
+                        checked={applyReviewDate}
+                        onChange={(event) => setApplyReviewDate(event.target.checked)}
+                        className="rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500"
+                      />
+                      {t('alertPanel.bulk.applyReview')}
+                    </label>
+                    <input
+                      type="date"
+                      aria-label={t('alertModal.lifecycle.reviewLabel')}
+                      value={bulkReviewDate}
+                      disabled={!applyReviewDate}
+                      onChange={(event) => setBulkReviewDate(event.target.value)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50"
+                    />
+                    <p className="text-[11px] text-gray-500">{t('alertPanel.bulk.reviewHelp')}</p>
+                    {bulkDateError && (
+                      <p role="alert" className="text-xs text-red-400">
+                        {bulkDateError}
+                      </p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setBulkEditorOpen(false)}
+                        className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5"
+                      >
+                        {t('alertPanel.bulk.cancel')}
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!applyExpiryDate && !applyReviewDate}
+                        className="text-xs bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                      >
+                        {t('alertPanel.bulk.saveDates')}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </section>
               {/* ── Triggered alerts ─────────────────────────────────────── */}
               {triggeredAlerts.length > 0 && (
                 <div>
@@ -375,7 +693,7 @@ export function AlertPanel(): ReactElement | null {
                         key={alert.id}
                         className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4 relative overflow-hidden"
                       >
-                        <div className="absolute top-0 left-0 w-1 h-full bg-cyan-500" />
+                        <div className="absolute top-0 start-0 w-1 h-full bg-cyan-500" />
                         <div className="flex justify-between items-start mb-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-white">{alert.assetPair}</span>
@@ -396,6 +714,8 @@ export function AlertPanel(): ReactElement | null {
                           {t('alertPanel.triggered.priceCrossed')}{' '}
                           <span className="font-mono">{getConditionText(alert)}</span>
                         </p>
+                        <LifecycleBadges alert={alert} now={now} />
+                        <DeliveryAttempts alertId={alert.id} />
                         <AlertAnalyticsStrip alertId={alert.id} stats={computeAlertStats(alert, alertHistory)} />
                         <RoutingBadge alert={alert} />
                         <div className="flex gap-2 flex-wrap mt-3">
@@ -432,12 +752,12 @@ export function AlertPanel(): ReactElement | null {
                               {t('alertPanel.snooze.button')}
                             </button>
                             {snoozeOpenId === alert.id && (
-                              <div className="absolute bottom-full mb-1 left-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-10 overflow-hidden min-w-[140px]">
+                              <div className="absolute bottom-full mb-1 start-0 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-10 overflow-hidden min-w-[140px]">
                                 {SNOOZE_DURATIONS.map(({ value, labelKey }) => (
                                   <button
                                     key={value}
                                     onClick={() => handleSnooze(alert.id, value)}
-                                    className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
+                                    className="w-full text-start px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                                   >
                                     {t(labelKey, labelKey)}
                                   </button>
@@ -492,6 +812,8 @@ export function AlertPanel(): ReactElement | null {
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 font-mono">{getConditionText(alert)}</div>
+                          <LifecycleBadges alert={alert} now={now} />
+                          <DeliveryAttempts alertId={alert.id} />
                           {alert.snoozedUntil && (
                             <div className="text-xs text-purple-400 mt-0.5">
                               {formatSnoozeExpiry(alert.snoozedUntil)}
@@ -553,6 +875,8 @@ export function AlertPanel(): ReactElement | null {
                             <RetestBadge alert={alert} />
                           </div>
                           <div className="text-xs text-gray-400 font-mono">{getConditionText(alert)}</div>
+                          <LifecycleBadges alert={alert} now={now} />
+                          <DeliveryAttempts alertId={alert.id} />
                           <AlertAnalyticsStrip alertId={alert.id} stats={computeAlertStats(alert, alertHistory)} />
                           <EscalationProgress alert={alert} />
                           <RoutingBadge alert={alert} />
@@ -619,6 +943,8 @@ export function AlertPanel(): ReactElement | null {
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 font-mono">{getConditionText(alert)}</div>
+                          <LifecycleBadges alert={alert} now={now} />
+                          <DeliveryAttempts alertId={alert.id} />
                           {alert.lastTriggeredAt && (
                             <div className="text-xs text-amber-400/70 mt-0.5">
                               {t('alertPanel.fired.at', { time: new Date(alert.lastTriggeredAt).toLocaleString() })}
@@ -685,6 +1011,8 @@ export function AlertPanel(): ReactElement | null {
                             )}
                           </div>
                           <div className="text-xs text-gray-500 font-mono">{getConditionText(alert)}</div>
+                          <LifecycleBadges alert={alert} now={now} />
+                          <DeliveryAttempts alertId={alert.id} />
                           <AlertAnalyticsStrip alertId={alert.id} stats={computeAlertStats(alert, alertHistory)} />
                         </div>
                         <div className="flex items-center gap-1">

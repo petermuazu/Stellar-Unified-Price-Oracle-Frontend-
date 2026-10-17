@@ -1,8 +1,14 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   font-display: swap;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -38,22 +44,12 @@ body {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.35),
-    transparent
-  );
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
   animation: skeleton-shimmer-sweep 1.6s ease-in-out infinite;
 }
 
 .dark .skeleton-shimmer::after {
-  background-image: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.08),
-    transparent
-  );
+  background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
 }
 
 @keyframes skeleton-shimmer-sweep {
@@ -106,8 +102,10 @@ body {
 
 /* Effectively disable keyframe animations when reduced-motion is active */
 .reduced-motion @keyframes {
-  from { }
-  to { }
+  from {
+  }
+  to {
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -191,7 +189,7 @@ body {
   nav,
   footer,
   .print\:hidden,
-  [role="status"],
+  [role='status'],
   [aria-live],
   button,
   .ConnectionBadge,
@@ -247,7 +245,8 @@ body {
   }
 
   /* Page breaks */
-  h1, h2 {
+  h1,
+  h2 {
     page-break-after: avoid;
   }
 
@@ -282,13 +281,13 @@ body {
 /* ── Sticky Table Columns (mobile horizontal scroll) ────────── */
 .sticky-col {
   position: sticky;
-  left: 0;
+  inset-inline-start: 0;
   z-index: 2;
 }
 
 .sticky-col-header {
   position: sticky;
-  left: 0;
+  inset-inline-start: 0;
   z-index: 5;
 }
 
@@ -303,33 +302,10 @@ tr.bg-cyan-900\/20:hover .sticky-col {
 }
 
 /* ── RTL: Logical Properties & Directional Overrides ────────── */
-/*
- * Anything that was built with physical properties (left/right) needs an RTL
- * counterpart. We rely on `[dir="rtl"]` set on <html> by applyRtl().
- *
- * Strategy:
- *  1. Use logical properties inline where Tailwind doesn't cover them.
- *  2. Flip sticky column anchors (left → right).
- *  3. Mirror the skeleton shimmer sweep direction.
- *  4. Flip the settings panel slide-in side (left border → right border).
- *  5. Mirror any explicit translate-x animations.
- */
-
-/* --- Skip-to-content link: left → right in RTL --- */
-[dir="rtl"] a[href="#main-content"].focus\:left-2:focus {
-  left: auto;
-  right: 0.5rem;
-}
-
-/* --- Sticky table columns: anchor to the right in RTL --- */
-[dir="rtl"] .sticky-col,
-[dir="rtl"] .sticky-col-header {
-  left: auto;
-  right: 0;
-}
+/* Directional utility positioning is expressed with logical properties. */
 
 /* --- Skeleton shimmer: sweep right-to-left in RTL --- */
-[dir="rtl"] .skeleton-shimmer::after {
+[dir='rtl'] .skeleton-shimmer::after {
   transform: translateX(100%);
 }
 
@@ -339,57 +315,32 @@ tr.bg-cyan-900\/20:hover .sticky-col {
   }
 }
 
-[dir="rtl"] .skeleton-shimmer::after {
+[dir='rtl'] .skeleton-shimmer::after {
   animation-name: skeleton-shimmer-sweep-rtl;
 }
 
-/* --- Settings panel: open from left side in RTL --- */
-/*
- * SettingsPanel uses `justify-end` + a panel with `border-l`.
- * In RTL the panel should slide in from the left, so we override the flex
- * direction and the border side.
- */
-[dir="rtl"] .rtl-panel-container {
-  justify-content: flex-start;
-}
-
-[dir="rtl"] .rtl-panel-container > [class*="border-l"] {
-  border-left: none;
-  border-right: 1px solid rgb(31 41 55);
-}
-
-/* --- Notification badge: flip absolute corner in RTL --- */
-/*
- * Badges positioned with `-top-1 -right-1` use physical right.
- * We redirect them to the physical left so they appear in the logical
- * start corner (which is the right side in LTR, left side in RTL).
- */
-[dir="rtl"] .rtl-badge-flip {
-  right: auto;
-  left: -0.25rem;
-}
-
-/* --- Active nav tab indicator: flip translate-x in RTL --- */
-/*
- * The active bottom-nav indicator uses `left-1/2 -translate-x-1/2`.
- * No change needed; that pattern is already symmetric. But for any
- * component that uses a fixed positive/negative translateX, mirror it:
- */
-[dir="rtl"] .rtl-mirror-x {
+/* --- Mirror direction-sensitive icons and motion in RTL --- */
+[dir='rtl'] .rtl-mirror-x {
   transform: scaleX(-1);
 }
 
 /* --- Undo/redo icon arrows: mirror in RTL --- */
-[dir="rtl"] .rtl-icon-mirror {
+[dir='rtl'] .rtl-icon-mirror {
   transform: scaleX(-1);
 }
 
 /* --- Page transition: reverse slide direction in RTL --- */
 @keyframes slide-in-from-right-rtl {
-  from { transform: translateX(-24px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
+  from {
+    transform: translateX(-24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
-[dir="rtl"] .rtl-slide-in {
+[dir='rtl'] .rtl-slide-in {
   animation-name: slide-in-from-right-rtl;
 }

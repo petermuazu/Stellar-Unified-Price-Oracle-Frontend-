@@ -17,6 +17,7 @@ const DEFAULT_OPTIONS: CircuitBreakerOptions = config.circuitBreaker
 interface CircuitEntry {
   state: CircuitState
   failureTimestamps: number[]
+  retryAt: number | null
   cooldownTimer: ReturnType<typeof setTimeout> | null
   halfOpenInFlight: boolean
 }
@@ -44,7 +45,7 @@ class CircuitBreaker {
   private getEntry(key: string): CircuitEntry {
     let entry = this.entries.get(key)
     if (!entry) {
-      entry = { state: 'closed', failureTimestamps: [], cooldownTimer: null, halfOpenInFlight: false }
+      entry = { state: 'closed', failureTimestamps: [], retryAt: null, cooldownTimer: null, halfOpenInFlight: false }
       this.entries.set(key, entry)
     }
     return entry
@@ -78,6 +79,7 @@ class CircuitBreaker {
     const entry = this.getEntry(key)
     entry.failureTimestamps = []
     entry.halfOpenInFlight = false
+    entry.retryAt = null
     if (entry.cooldownTimer) {
       clearTimeout(entry.cooldownTimer)
       entry.cooldownTimer = null
@@ -105,6 +107,7 @@ class CircuitBreaker {
   }
 
   private openCircuit(key: string, entry: CircuitEntry): void {
+    entry.retryAt = Date.now() + this.options.cooldownMs
     this.setState(key, entry, 'open')
     entry.failureTimestamps = []
 
@@ -118,6 +121,12 @@ class CircuitBreaker {
   /** Returns the current state for `key` (defaults to `closed` if unknown). */
   getState(key: string): CircuitState {
     return this.entries.get(key)?.state ?? 'closed'
+  }
+
+  /** Returns the next time requests may be attempted, or `null` when not open. */
+  getNextRetryAt(key: string): number | null {
+    const entry = this.entries.get(key)
+    return entry?.state === 'open' ? entry.retryAt : null
   }
 
   /** Returns a snapshot of every known endpoint group's state, for devtools display. */
@@ -150,9 +159,17 @@ export class CircuitOpenError extends Error {
 
 export const circuitBreaker = new CircuitBreaker()
 
-/** Derives the circuit-breaker grouping key for a request path, e.g. `/api/prices/BTC/history` -> `/api/prices`. */
+/** Returns the isolated circuit key used by a pair-specific price request. */
+export function circuitKeyForPair(pair: string): string {
+  return `/api/prices/pair:${encodeURIComponent(pair)}`
+}
+
+/** Uses a per-pair key for pair-scoped prices and a shared key for collection endpoints. */
 export function circuitKeyForPath(path: string): string {
   const clean = path.split('?')[0]
   const parts = clean.split('/').filter(Boolean)
+  if (parts[0] === 'api' && parts[1] === 'prices' && parts[2] && parts[2] !== 'history' && parts[2] !== 'batch') {
+    return `/api/prices/pair:${parts[2]}`
+  }
   return '/' + parts.slice(0, 2).join('/')
 }

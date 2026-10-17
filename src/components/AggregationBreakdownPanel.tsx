@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react'
 import { formatPrice } from '../utils/format'
 import { SOURCE_COLORS } from '../utils/sourceColors'
 import type { AggregationBreakdown, AggregationMode } from '../types/price'
+import { MetricHelp } from './MetricHelp'
 
 // ── Mode badge ────────────────────────────────────────────────────────────────
 
@@ -49,19 +50,11 @@ function ModeBadge({ mode }: { mode: AggregationMode }) {
 
 // ── Contribution bar ──────────────────────────────────────────────────────────
 
-function ContributionBar({
-  source,
-  weight,
-  excluded,
-}: {
-  source: string
-  weight: number
-  excluded: boolean
-}) {
+function ContributionBar({ source, weight, excluded }: { source: string; weight: number; excluded: boolean }) {
   const pct = (weight * 100).toFixed(1)
   const colorClass = excluded
     ? 'bg-gray-700'
-    : SOURCE_COLORS[source]?.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-cyan-500/40'
+    : (SOURCE_COLORS[source]?.split(' ').find((c) => c.startsWith('bg-')) ?? 'bg-cyan-500/40')
 
   return (
     <div className="flex items-center gap-2 min-w-0">
@@ -76,7 +69,9 @@ function ContributionBar({
           aria-label={`${source} weight`}
         />
       </div>
-      <span className={`text-xs tabular-nums w-10 text-right ${excluded ? 'text-gray-600 line-through' : 'text-gray-400'}`}>
+      <span
+        className={`text-xs tabular-nums w-10 text-end ${excluded ? 'text-gray-600 line-through' : 'text-gray-400'}`}
+      >
         {excluded ? '—' : `${pct}%`}
       </span>
     </div>
@@ -91,12 +86,12 @@ function WeightedMeanSteps({ breakdown }: { breakdown: AggregationBreakdown }) {
 
   return (
     <div className="mt-4 bg-gray-800/60 rounded-lg p-4 font-mono text-xs text-gray-300 overflow-x-auto">
-      <p className="text-gray-500 mb-2 font-sans text-[11px] uppercase tracking-wider">
-        Calculation steps
-      </p>
+      <p className="text-gray-500 mb-2 font-sans text-[11px] uppercase tracking-wider">Calculation steps</p>
       {active.map((item, i) => (
         <div key={item.source} className="flex flex-wrap gap-x-2 leading-6">
-          <span className={SOURCE_COLORS[item.source]?.split(' ').find((c) => c.startsWith('text-')) ?? 'text-gray-300'}>
+          <span
+            className={SOURCE_COLORS[item.source]?.split(' ').find((c) => c.startsWith('text-')) ?? 'text-gray-300'}
+          >
             {item.source}
           </span>
           <span className="text-gray-500">
@@ -122,10 +117,7 @@ export interface AggregationBreakdownPanelProps {
 export function AggregationBreakdownPanel({ breakdown }: AggregationBreakdownPanelProps) {
   const [showSteps, setShowSteps] = useState(false)
 
-  const excludedCount = useMemo(
-    () => breakdown.sources.filter((s) => s.excluded).length,
-    [breakdown.sources],
-  )
+  const excludedCount = useMemo(() => breakdown.sources.filter((s) => s.excluded).length, [breakdown.sources])
 
   return (
     <section aria-labelledby="aggregation-breakdown-heading">
@@ -144,9 +136,7 @@ export function AggregationBreakdownPanel({ breakdown }: AggregationBreakdownPan
       <p className="text-xs text-gray-500 mb-4 leading-relaxed">
         {MODE_DESCRIPTIONS[breakdown.mode]}
         {breakdown.mode === 'outlier_excluded' && typeof breakdown.params['zScoreThreshold'] === 'number' && (
-          <span className="ml-1 text-amber-400/70">
-            (z-score threshold: {breakdown.params['zScoreThreshold']})
-          </span>
+          <span className="ms-1 text-amber-400/70">(z-score threshold: {breakdown.params['zScoreThreshold']})</span>
         )}
       </p>
 
@@ -159,19 +149,20 @@ export function AggregationBreakdownPanel({ breakdown }: AggregationBreakdownPan
         <table className="w-full text-sm border-collapse" aria-label="Aggregation breakdown table">
           <thead>
             <tr className="bg-gray-800/80">
-              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-start text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Source
               </th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-end text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Price
               </th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-end text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Weight
+                <MetricHelp topic="weights" />
               </th>
-              <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2.5 text-end text-xs font-semibold text-gray-400 uppercase tracking-wider">
                 Contribution
               </th>
-              <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">
+              <th className="px-4 py-2.5 text-start text-xs font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">
                 Share
               </th>
             </tr>
@@ -201,29 +192,19 @@ export function AggregationBreakdownPanel({ breakdown }: AggregationBreakdownPan
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-gray-200">
-                  ${formatPrice(item.price)}
-                </td>
-                <td className="px-4 py-3 text-right font-mono text-gray-300">
+                <td className="px-4 py-3 text-end font-mono text-gray-200">${formatPrice(item.price)}</td>
+                <td className="px-4 py-3 text-end font-mono text-gray-300">
                   {item.excluded ? (
                     <span className="text-gray-600 line-through">{(item.weight * 100).toFixed(1)}%</span>
                   ) : (
                     `${(item.weight * 100).toFixed(1)}%`
                   )}
                 </td>
-                <td className="px-4 py-3 text-right font-mono text-gray-300">
-                  {item.excluded ? (
-                    <span className="text-gray-600">—</span>
-                  ) : (
-                    `$${formatPrice(item.contribution)}`
-                  )}
+                <td className="px-4 py-3 text-end font-mono text-gray-300">
+                  {item.excluded ? <span className="text-gray-600">—</span> : `$${formatPrice(item.contribution)}`}
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell w-40">
-                  <ContributionBar
-                    source={item.source}
-                    weight={item.weight}
-                    excluded={item.excluded}
-                  />
+                  <ContributionBar source={item.source} weight={item.weight} excluded={item.excluded} />
                 </td>
               </tr>
             ))}
@@ -231,14 +212,12 @@ export function AggregationBreakdownPanel({ breakdown }: AggregationBreakdownPan
           {/* Aggregate total row */}
           <tfoot>
             <tr className="border-t-2 border-gray-700 bg-gray-800/60">
-              <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Aggregate
-              </td>
-              <td className="px-4 py-3 text-right font-mono font-bold text-cyan-400">
+              <td className="px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Aggregate</td>
+              <td className="px-4 py-3 text-end font-mono font-bold text-cyan-400">
                 ${formatPrice(breakdown.aggregatePrice)}
               </td>
-              <td className="px-4 py-3 text-right font-mono text-gray-400">100%</td>
-              <td className="px-4 py-3 text-right font-mono font-bold text-cyan-400">
+              <td className="px-4 py-3 text-end font-mono text-gray-400">100%</td>
+              <td className="px-4 py-3 text-end font-mono font-bold text-cyan-400">
                 ${formatPrice(breakdown.aggregatePrice)}
               </td>
               <td className="px-4 py-3 hidden sm:table-cell" />

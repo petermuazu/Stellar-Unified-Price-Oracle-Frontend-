@@ -45,13 +45,7 @@ export interface ViewManagerProps {
 
 function IconBookmark(): ReactElement {
   return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -64,13 +58,7 @@ function IconBookmark(): ReactElement {
 
 function IconLink(): ReactElement {
   return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -83,13 +71,7 @@ function IconLink(): ReactElement {
 
 function IconTrash(): ReactElement {
   return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -102,38 +84,21 @@ function IconTrash(): ReactElement {
 
 function IconPlay(): ReactElement {
   return (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
         d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
       />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   )
 }
 
 function IconChevronDown(): ReactElement {
   return (
-    <svg
-      className="w-4 h-4 ml-1"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-    >
+    <svg className="w-4 h-4 ms-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   )
@@ -148,23 +113,13 @@ interface ViewItemProps {
   onDelete: (id: string) => void
 }
 
-const ViewItem = memo(function ViewItem({
-  view,
-  onActivate,
-  onCopyLink,
-  onDelete,
-}: ViewItemProps): ReactElement {
+const ViewItem = memo(function ViewItem({ view, onActivate, onCopyLink, onDelete }: ViewItemProps): ReactElement {
   return (
-    <li
-      role="menuitem"
-      className="flex items-start gap-2 px-3 py-2 hover:bg-gray-700/60 rounded-md group"
-    >
+    <li role="menuitem" className="flex items-start gap-2 px-3 py-2 hover:bg-gray-700/60 rounded-md group">
       {/* View info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-gray-100 truncate">{view.name}</p>
-        {view.description && (
-          <p className="text-xs text-gray-400 truncate mt-0.5">{view.description}</p>
-        )}
+        {view.description && <p className="text-xs text-gray-400 truncate mt-0.5">{view.description}</p>}
       </div>
 
       {/* Actions */}
@@ -242,10 +197,7 @@ export const ViewManager = memo(function ViewManager({
 
     function onPointerDown(e: PointerEvent) {
       const target = e.target as Node
-      if (
-        !panelRef.current?.contains(target) &&
-        !triggerRef.current?.contains(target)
-      ) {
+      if (!panelRef.current?.contains(target) && !triggerRef.current?.contains(target)) {
         setIsOpen(false)
       }
     }
@@ -348,9 +300,7 @@ export const ViewManager = memo(function ViewManager({
       const panel = panelRef.current
       if (!panel) return
       const focusable = Array.from(
-        panel.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), textarea:not([disabled])',
-        ),
+        panel.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), textarea:not([disabled])'),
       )
       const current = document.activeElement as HTMLElement
       const idx = focusable.indexOf(current)
@@ -359,9 +309,7 @@ export const ViewManager = memo(function ViewManager({
         return
       }
       const next =
-        e.key === 'ArrowDown'
-          ? (idx + 1) % focusable.length
-          : (idx - 1 + focusable.length) % focusable.length
+        e.key === 'ArrowDown' ? (idx + 1) % focusable.length : (idx - 1 + focusable.length) % focusable.length
       e.preventDefault()
       focusable[next]?.focus()
     }
@@ -392,14 +340,12 @@ export const ViewManager = memo(function ViewManager({
           role="menu"
           aria-label="Saved dashboard views"
           onKeyDown={handlePanelKeyDown}
-          className="absolute right-0 mt-1.5 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50 overflow-hidden"
+          className="absolute end-0 mt-1.5 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl z-50 overflow-hidden"
         >
           {/* Header */}
           <div className="px-4 py-3 border-b border-gray-800">
             <h2 className="text-sm font-semibold text-gray-100">Saved Views</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Save your current filter / sort state as a named view
-            </p>
+            <p className="text-xs text-gray-400 mt-0.5">Save your current filter / sort state as a named view</p>
           </div>
 
           {/* View list */}
@@ -409,10 +355,7 @@ export const ViewManager = memo(function ViewManager({
             ) : views.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-6">No saved views yet</p>
             ) : (
-              <ul
-                aria-label="Saved views list"
-                className="px-2 py-2 space-y-0.5"
-              >
+              <ul aria-label="Saved views list" className="px-2 py-2 space-y-0.5">
                 {views.map((view) => (
                   <ViewItem
                     key={view.id}
@@ -429,18 +372,13 @@ export const ViewManager = memo(function ViewManager({
           {/* Save current view form */}
           <div className="border-t border-gray-800 px-4 py-3">
             <p className="text-xs font-medium text-gray-300 mb-2">Save current view</p>
-            <form
-              id={formId}
-              onSubmit={handleSave}
-              aria-label="Save current view"
-              className="space-y-2"
-            >
+            <form id={formId} onSubmit={handleSave} aria-label="Save current view" className="space-y-2">
               <div>
-                <label
-                  htmlFor={nameId}
-                  className="block text-xs text-gray-400 mb-1"
-                >
-                  Name <span aria-hidden="true" className="text-red-400">*</span>
+                <label htmlFor={nameId} className="block text-xs text-gray-400 mb-1">
+                  Name{' '}
+                  <span aria-hidden="true" className="text-red-400">
+                    *
+                  </span>
                 </label>
                 <input
                   ref={nameInputRef}
@@ -456,12 +394,8 @@ export const ViewManager = memo(function ViewManager({
               </div>
 
               <div>
-                <label
-                  htmlFor={descId}
-                  className="block text-xs text-gray-400 mb-1"
-                >
-                  Description{' '}
-                  <span className="text-gray-600">(optional)</span>
+                <label htmlFor={descId} className="block text-xs text-gray-400 mb-1">
+                  Description <span className="text-gray-600">(optional)</span>
                 </label>
                 <input
                   id={descId}

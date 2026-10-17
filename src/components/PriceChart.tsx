@@ -11,14 +11,18 @@ import {
   Line,
   LineChart,
   ReferenceLine,
+  ReferenceArea,
 } from 'recharts'
 import type { TooltipPayload } from 'recharts'
-import type { PriceHistoryEntry } from '../types'
+import type { PriceHistoryEntry, PriceQualityFlags } from '../types'
 import { formatChartTimeWithTz, formatPriceShort, formatTimestamp, getTimezoneAbbr } from '../utils/format'
 import { rasterizeChartToDataUrl } from '../utils/chartExport'
 import { exportPriceHistoryPdf } from '../utils/pdfExport'
 import { loadChartExport } from '../utils/deferredExports'
 import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getChartPalette, getChartTheme, type ChartPalette, type ChartTheme } from '../utils/chartTheme'
+import { getSourceTimestampState } from '../utils/sourceTimestamps'
+import { buildSourceCoverageData } from '../utils/priceHistoryCoverage'
 
 // ---------------------------------------------------------------------------
 // #305 – Chart annotation types
@@ -34,6 +38,20 @@ export interface ChartAnnotation {
   note?: string
   /** Hex colour for the reference line. Defaults to amber. */
   color?: string
+  /** Quality annotations are API-derived and cannot be dismissed as user notes. */
+  kind?: 'quality' | 'user'
+}
+
+function sourceTimestampSummary(entry: PriceHistoryEntry): string {
+  if (entry.sources.length === 0) return 'No source contributors reported'
+  return entry.sources
+    .map((source) => {
+      const sourceTimestamp = entry.sourceTimestamps?.find((item) => item.source === source)
+      const state = getSourceTimestampState(sourceTimestamp, entry.timestamp)
+      if (state === 'unavailable' || !sourceTimestamp) return `${source}: unavailable from API`
+      return `${source}: ${formatTimestamp(sourceTimestamp.timestamp)}${state === 'stale' ? ' (stale)' : ''}`
+    })
+    .join('; ')
 }
 
 // ---------------------------------------------------------------------------
@@ -44,8 +62,13 @@ interface ChartPoint {
   timestamp: number
   confidence: number
   sources: string[]
+  sourceTimestamps?: PriceHistoryEntry['sourceTimestamps']
   time: string
   idx: number
+  rollingMedian: number
+  rangeLow: number
+  rangeHigh: number
+  sampleCount: number
   [key: string]: unknown
 }
 
@@ -55,19 +78,22 @@ interface CustomTooltipProps {
   label?: string | number
   tzAbbr: string
   allData: ChartPoint[]
+  palette: ChartPalette
   normalised?: boolean
 }
 
-function CustomTooltip({ active, payload, label, tzAbbr, allData, normalised }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, label, tzAbbr, allData, palette, normalised }: CustomTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
 
   // The first payload entry carries the primary series data
   const raw = payload[0]?.payload as ChartPoint | undefined
   if (!raw) return null
 
-  const price = typeof raw.price === 'number' ? raw.price : (payload[0]?.value as number | undefined)
+  const pricePayload = payload.filter((point) => !ROLLING_STAT_KEYS.has(String(point.dataKey)))
+  const price = typeof raw.price === 'number' ? raw.price : (pricePayload[0]?.value as number | undefined)
   const confidence = typeof raw.confidence === 'number' ? raw.confidence : null
   const sources: string[] = Array.isArray(raw.sources) ? raw.sources : []
+  const qualityFlags = raw.qualityFlags
 
   // % change vs previous visible point
   let pctChange: number | null = null
@@ -79,47 +105,107 @@ function CustomTooltip({ active, payload, label, tzAbbr, allData, normalised }: 
   }
 
   return (
-    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs shadow-xl min-w-[160px]">
-      <p className="text-gray-400 mb-2">
+    <div
+      className="rounded-lg border p-3 text-xs shadow-xl min-w-[160px]"
+      style={{
+        backgroundColor: palette.tooltipBackground,
+        borderColor: palette.border,
+        color: palette.tooltipForeground,
+      }}
+    >
+      <p className="mb-2" style={{ color: palette.tooltipMuted }}>
         {label} <span className="text-gray-600">({tzAbbr})</span>
       </p>
       {price !== undefined && (
-        <p className="text-white font-mono font-semibold text-sm mb-1">
+        <p className="font-mono font-semibold text-sm mb-1" style={{ color: palette.tooltipForeground }}>
           {normalised
             ? `${typeof payload[0]?.value === 'number' ? payload[0].value.toFixed(2) : '—'}%`
             : `$${formatPriceShort(price)}`}
         </p>
       )}
       {pctChange !== null && (
-        <p className={`mb-1 font-mono ${pctChange >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+        <p className="mb-1 font-mono" style={{ color: palette.series[pctChange >= 0 ? 3 : 4].color }}>
           {pctChange >= 0 ? '▲' : '▼'} {Math.abs(pctChange).toFixed(3)}% vs prev
         </p>
       )}
       {confidence !== null && (
-        <p className="text-gray-400 mb-1">
-          Confidence: <span className="text-gray-200">{(confidence * 100).toFixed(1)}%</span>
+        <p className="mb-1" style={{ color: palette.tooltipMuted }}>
+          Confidence: <span style={{ color: palette.tooltipForeground }}>{(confidence * 100).toFixed(1)}%</span>
         </p>
       )}
+      {typeof raw.rollingMedian === 'number' && (
+        <div className="mt-1.5 pt-1.5 border-t border-gray-800 text-gray-300">
+          <p>
+            Rolling median:{' '}
+            <span className="font-mono">
+              {normalised ? `${raw.rollingMedian.toFixed(2)}%` : `$${formatPriceShort(raw.rollingMedian)}`}
+            </span>
+          </p>
+          <p className="text-gray-400">
+            Range ({raw.sampleCount} obs.):{' '}
+            {normalised
+              ? `${raw.rangeLow.toFixed(2)}% to ${raw.rangeHigh.toFixed(2)}%`
+              : `$${formatPriceShort(raw.rangeLow)} to $${formatPriceShort(raw.rangeHigh)}`}
+          </p>
+        </div>
+      )}
       {sources.length > 0 && (
-        <div className="mt-1.5 pt-1.5 border-t border-gray-800">
-          <p className="text-gray-500 mb-1">
+        <div className="mt-1.5 pt-1.5 border-t" style={{ borderColor: palette.border }}>
+          <p className="mb-1" style={{ color: palette.tooltipMuted }}>
             {sources.length} oracle{sources.length !== 1 ? 's' : ''}
           </p>
           <div className="flex flex-wrap gap-1">
             {sources.map((s) => (
-              <span key={s} className="bg-gray-800 text-cyan-400 rounded px-1.5 py-0.5 font-mono">
+              <span
+                key={s}
+                className="rounded px-1.5 py-0.5 font-mono"
+                style={{ backgroundColor: palette.background, color: palette.series[0].color }}
+              >
                 {s}
               </span>
             ))}
           </div>
+          <ul className="mt-1.5 space-y-1" aria-label="Contributing source timestamps">
+            {sources.map((source) => {
+              const sourceTimestamp = raw.sourceTimestamps?.find((item) => item.source === source)
+              const state = getSourceTimestampState(sourceTimestamp, raw.timestamp)
+              return (
+                <li key={source} style={{ color: palette.tooltipMuted }}>
+                  {source}:{' '}
+                  {!sourceTimestamp || state === 'unavailable' ? (
+                    <span>Unavailable from API</span>
+                  ) : (
+                    <>
+                      <time dateTime={new Date(sourceTimestamp.timestamp).toISOString()}>
+                        {formatTimestamp(sourceTimestamp.timestamp)}
+                      </time>
+                      {state === 'stale' && <span> (stale)</span>}
+                    </>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
-      {payload.slice(1).map((p, i) => {
+      {qualityFlags ? (
+        <div className="mt-1.5 border-t border-gray-800 pt-1.5">
+          <p className="mb-1 text-gray-500">Quality flags reported by API</p>
+          {(['synthetic', 'stale', 'imputed'] as const).map((flag) => (
+            <p key={flag} className="text-gray-300">
+              {flag}: {qualityFlags[flag] === undefined ? 'not reported' : qualityFlags[flag] ? 'yes' : 'no'}
+            </p>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-1.5 border-t border-gray-800 pt-1.5 text-gray-500">Quality flags not reported by API</p>
+      )}
+      {pricePayload.slice(1).map((p, i) => {
         const color = typeof p.color === 'string' ? p.color : '#fff'
         const label = p.name != null ? String(p.name) : `Series ${i + 1}`
         const value = typeof p.value === 'number' ? p.value : undefined
         return (
-          <div key={i} className="mt-1.5 pt-1.5 border-t border-gray-800">
+          <div key={i} className="mt-1.5 pt-1.5 border-t" style={{ borderColor: palette.border }}>
             <p style={{ color }} className="font-mono">
               {label}:{' '}
               {normalised
@@ -144,9 +230,6 @@ const TIME_RANGES: { label: string; value: TimeRange }[] = [
   { label: '30D', value: '30d' },
   { label: '1Y', value: '1y' },
 ]
-
-// Overlay pair colors — each additional pair gets a distinct color
-const OVERLAY_COLORS = ['#f59e0b', '#a78bfa', '#34d399', '#f87171', '#60a5fa']
 
 function filterByRange(data: PriceHistoryEntry[], range: TimeRange): PriceHistoryEntry[] {
   const now = Date.now()
@@ -199,7 +282,7 @@ function ChartContent({
   onTimeRangeChange,
   fullScreen,
   onToggleFullScreen,
-  dark,
+  palette,
   loadingMore,
   hasMore,
   onLoadMore,
@@ -213,7 +296,7 @@ function ChartContent({
   onTimeRangeChange: (r: TimeRange) => void
   fullScreen: boolean
   onToggleFullScreen: () => void
-  dark: boolean
+  palette: ChartPalette
   loadingMore: boolean
   hasMore: boolean
   onLoadMore?: () => Promise<void>
@@ -221,6 +304,7 @@ function ChartContent({
   overlayPairs?: OverlayPair[]
   annotations?: ChartAnnotation[]
 }) {
+  const isRtl = useIsRtl()
   // Zoom/pan state
   const [zoomDomain, setZoomDomain] = useState<[number, number] | null>(null)
   const [isPanning, setIsPanning] = useState(false)
@@ -233,6 +317,8 @@ function ChartContent({
   >(null)
   // Toggle individual overlay pairs on/off
   const [hiddenPairs, setHiddenPairs] = useState<Set<string>>(new Set())
+  const [hiddenCoverageSources, setHiddenCoverageSources] = useState<Set<string>>(new Set())
+  const [coverageVisible, setCoverageVisible] = useState(false)
   // Whether to show normalised % change (used when overlays present)
   const [normalised, setNormalised] = useState(false)
   // Whether accessible data table is shown
@@ -284,11 +370,25 @@ function ChartContent({
 
   const tzAbbr = getTimezoneAbbr(timezone)
   const filteredData = filterByRange(data, timeRange)
+  const potentialGaps = useMemo(() => findPriceHistoryGaps(filteredData), [filteredData])
 
   const chartData = filteredData
     .slice()
     .reverse()
-    .map((d, i) => ({ ...d, time: formatChartTimeWithTz(d.timestamp, timezone), idx: i }))
+    .map((d, i) => {
+      const statistic = rollingStatistics[rollingStatistics.length - 1 - i]
+      return {
+        ...d,
+        time: formatChartTimeWithTz(d.timestamp, timezone),
+        idx: i,
+        rollingMedian: statistic.median,
+        rangeLow: statistic.low,
+        rangeHigh: statistic.high,
+        rangeBandBase: statistic.low,
+        rangeBandWidth: statistic.high - statistic.low,
+        sampleCount: statistic.sampleCount,
+      }
+    })
 
   // Build overlay series (filter by range, normalise if needed)
   const hasOverlays = overlayPairs.length > 0
@@ -300,9 +400,18 @@ function ChartContent({
     if (!hasOverlays) return chartData
     // Normalise primary
     const primaryNorm = normalised ? normaliseToPercent(chartData) : null
+    const normaliseStatistic = (value: number) => {
+      const basePrice = chartData[0]?.price ?? 0
+      return normalised && basePrice !== 0 ? ((value - basePrice) / basePrice) * 100 : value
+    }
     const base = chartData.map((d, i) => ({
       ...d,
       [pair]: normalised && primaryNorm ? primaryNorm[i].pct : d.price,
+      rollingMedian: normaliseStatistic(d.rollingMedian),
+      rangeLow: normaliseStatistic(d.rangeLow),
+      rangeHigh: normaliseStatistic(d.rangeHigh),
+      rangeBandBase: normaliseStatistic(d.rangeLow),
+      rangeBandWidth: normaliseStatistic(d.rangeHigh) - normaliseStatistic(d.rangeLow),
     }))
     // Merge each overlay
     for (const op of overlayPairs) {
@@ -324,12 +433,6 @@ function ChartContent({
   const minP = Math.min(...prices)
   const maxP = Math.max(...prices)
   const pad = (maxP - minP) * 0.1 || maxP * 0.05
-
-  const colors = {
-    gridStroke: dark ? '#1f2937' : '#e5e7eb',
-    tickFill: dark ? '#6b7280' : '#9ca3af',
-    axisLine: dark ? '#1f2937' : '#e5e7eb',
-  }
 
   const totalPoints = mergedChartData.length
   const activeDomain = useMemo<[number, number]>(() => zoomDomain ?? [0, totalPoints - 1], [zoomDomain, totalPoints])
@@ -437,6 +540,11 @@ function ChartContent({
   }, [])
 
   const visibleData = mergedChartData.slice(activeDomain[0], activeDomain[1] + 1)
+  const coverageData = useMemo(
+    () => buildSourceCoverageData(chartData.slice(activeDomain[0], activeDomain[1] + 1)),
+    [chartData, activeDomain],
+  )
+  const activeCoverageSeries = coverageData.series.filter((item) => !hiddenCoverageSources.has(item.source))
 
   // Human-readable label for the currently zoomed date range (#301)
   const zoomedRangeLabel =
@@ -452,14 +560,14 @@ function ChartContent({
       setExporting(true)
       try {
         const { exportChartAsPng, exportChartAsSvg } = await loadChartExport()
-        const bgColor = dark ? '#111827' : '#ffffff'
+        const bgColor = palette.background
         const safePair = pair.replace(/\//g, '-')
         const filename = `${safePair}_${timeRange}.${format}`
         if (format === 'svg') {
           exportChartAsSvg(container, filename, bgColor)
         } else if (format === 'pdf') {
           const chart = await rasterizeChartToDataUrl(container, bgColor)
-          exportPriceHistoryPdf({ pair, history: data, chart, filename })
+          exportPriceHistoryPdf({ pair, history: data, chart, filename, palette })
         } else {
           await exportChartAsPng(container, filename, bgColor)
         }
@@ -467,7 +575,7 @@ function ChartContent({
         setExporting(false)
       }
     },
-    [dark, pair, timeRange, data],
+    [palette, pair, timeRange, data],
   )
 
   // Check if user scrolled near the start to trigger load more
@@ -519,6 +627,19 @@ function ChartContent({
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {rangeBar}
+          <button
+            type="button"
+            onClick={() => setCoverageVisible((visible) => !visible)}
+            className={`px-2 py-1 text-xs rounded-lg border transition-colors ${
+              coverageVisible
+                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
+                : 'text-gray-400 border-gray-700 hover:text-gray-200 hover:bg-gray-700'
+            }`}
+            aria-pressed={coverageVisible}
+            aria-label="Toggle per-source coverage overlay"
+          >
+            Coverage
+          </button>
           {hasOverlays && (
             <button
               type="button"
@@ -591,14 +712,14 @@ function ChartContent({
             </button>
             {exportMenuOpen && (
               <div
-                className="absolute right-0 mt-1 w-32 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-10 overflow-hidden"
+                className="absolute end-0 mt-1 w-32 bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-10 overflow-hidden"
                 role="menu"
               >
                 <button
                   type="button"
                   role="menuitem"
                   onClick={() => handleExport('png')}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
+                  className="w-full text-start px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                 >
                   Export as PNG
                 </button>
@@ -606,7 +727,7 @@ function ChartContent({
                   type="button"
                   role="menuitem"
                   onClick={() => handleExport('svg')}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
+                  className="w-full text-start px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                 >
                   Export as SVG
                 </button>
@@ -614,7 +735,7 @@ function ChartContent({
                   type="button"
                   role="menuitem"
                   onClick={() => handleExport('pdf')}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
+                  className="w-full text-start px-3 py-2 text-xs text-gray-300 hover:bg-gray-700 transition-colors"
                 >
                   Export as PDF
                 </button>
@@ -650,11 +771,12 @@ function ChartContent({
       {hasOverlays && (
         <div className="flex flex-wrap items-center gap-3 mb-2" role="group" aria-label="Overlay pairs legend">
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="inline-block w-5 h-0 border-t-2 border-cyan-400" />
-            <span className="text-cyan-400">{pair}</span>
+            <span className="inline-block w-5 border-t-2" style={{ borderColor: palette.series[0].color }} />
+            <span style={{ color: palette.series[0].color }}>{pair}</span>
           </div>
           {overlayPairs.map((op, i) => {
-            const color = OVERLAY_COLORS[i % OVERLAY_COLORS.length]
+            const series = palette.series[(i + 1) % palette.series.length]
+            const color = series.color
             const hidden = hiddenPairs.has(op.pair)
             return (
               <button
@@ -673,13 +795,34 @@ function ChartContent({
                 aria-label={`Toggle ${op.pair} overlay`}
                 style={{ color }}
               >
-                <span className="inline-block w-5 h-0 border-t-2" style={{ borderColor: color }} />
+                <span
+                  className="inline-block w-5 border-t-2"
+                  style={{ borderColor: color, borderTopStyle: series.dash === '0' ? 'solid' : 'dashed' }}
+                />
                 {op.pair}
               </button>
             )
           })}
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-3 mb-2 text-xs" role="group" aria-label="Rolling statistics">
+        <span className="inline-flex items-center gap-1.5 text-violet-300">
+          <span className="inline-block w-5 border-t-2 border-dashed border-violet-400" aria-hidden="true" />
+          Rolling median (20 observations)
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-gray-400">
+          <span
+            className="inline-block w-5 h-2 rounded bg-violet-400/20 border border-violet-400/40"
+            aria-hidden="true"
+          />
+          Range band (rolling low–high)
+        </span>
+        <span className="text-gray-500">
+          Based on {filteredData.length} loaded observations
+          {hasMore ? '; older history may be available by scrolling.' : '.'}
+        </span>
+      </div>
 
       <div
         ref={chartWrapperRef}
@@ -700,23 +843,23 @@ function ChartContent({
           <ResponsiveContainer width="100%" height="100%">
             {/* #302 – isAnimationActive suppressed on incremental real-time appends */}
             <LineChart data={visibleData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
+              <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
               <XAxis
                 dataKey="time"
-                tick={{ fill: colors.tickFill, fontSize: 11 }}
-                axisLine={{ stroke: colors.axisLine }}
+                tick={{ fill: palette.muted, fontSize: 11 }}
+                axisLine={{ stroke: palette.border }}
                 tickLine={false}
                 interval="preserveStartEnd"
                 label={{
                   value: tzAbbr,
-                  position: 'insideBottomRight',
+                  position: isRtl ? 'insideBottomLeft' : 'insideBottomRight',
                   offset: -5,
-                  fill: colors.tickFill,
+                  fill: palette.muted,
                   fontSize: 10,
                 }}
               />
               <YAxis
-                tick={{ fill: colors.tickFill, fontSize: 11 }}
+                tick={{ fill: palette.muted, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => (normalised ? `${v.toFixed(1)}%` : formatPriceShort(v))}
@@ -725,9 +868,25 @@ function ChartContent({
               {/* #300 – Custom tooltip with sources, confidence, oracle count, % change */}
               <Tooltip
                 content={
-                  <CustomTooltip tzAbbr={tzAbbr} allData={visibleData as ChartPoint[]} normalised={normalised} />
+                  <CustomTooltip
+                    tzAbbr={tzAbbr}
+                    allData={visibleData as ChartPoint[]}
+                    palette={palette}
+                    normalised={normalised}
+                  />
                 }
               />
+              {potentialGaps.map((gap) => (
+                <ReferenceArea
+                  key={`${gap.startTimestamp}-${gap.endTimestamp}`}
+                  x1={formatChartTimeWithTz(gap.startTimestamp, timezone)}
+                  x2={formatChartTimeWithTz(gap.endTimestamp, timezone)}
+                  fill="#f59e0b"
+                  fillOpacity={0.12}
+                  stroke="#f59e0b"
+                  strokeDasharray="4 2"
+                />
+              ))}
               {/* #305 – Annotations as vertical reference lines */}
               {localAnnotations.map((ann) => {
                 const annTime = formatChartTimeWithTz(ann.timestamp, timezone)
@@ -749,7 +908,8 @@ function ChartContent({
               <Line
                 type="monotone"
                 dataKey={pair}
-                stroke="#22d3ee"
+                stroke={palette.series[0].color}
+                strokeDasharray={palette.series[0].dash}
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4 }}
@@ -762,7 +922,8 @@ function ChartContent({
                   key={op.pair}
                   type="monotone"
                   dataKey={op.pair}
-                  stroke={OVERLAY_COLORS[i % OVERLAY_COLORS.length]}
+                  stroke={palette.series[(i + 1) % palette.series.length].color}
+                  strokeDasharray={palette.series[(i + 1) % palette.series.length].dash}
                   strokeWidth={1.5}
                   dot={false}
                   activeDot={{ r: 3 }}
@@ -779,28 +940,29 @@ function ChartContent({
             <AreaChart data={visibleData}>
               <defs>
                 <linearGradient id={`priceGradient${fullScreen ? 'Fs' : ''}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
+                  <stop offset="0%" stopColor={palette.series[0].color} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={palette.series[0].color} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
+              <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
               <XAxis
                 dataKey="time"
-                tick={{ fill: colors.tickFill, fontSize: 11 }}
-                axisLine={{ stroke: colors.axisLine }}
+                tick={{ fill: palette.muted, fontSize: 11 }}
+                axisLine={{ stroke: palette.border }}
                 tickLine={false}
                 interval="preserveStartEnd"
                 label={{
                   value: tzAbbr,
-                  position: 'insideBottomRight',
+                  position: isRtl ? 'insideBottomLeft' : 'insideBottomRight',
                   offset: -5,
-                  fill: colors.tickFill,
+                  fill: palette.muted,
                   fontSize: 10,
                 }}
               />
               <YAxis
+                orientation={isRtl ? 'right' : 'left'}
                 domain={[minP - pad, maxP + pad]}
-                tick={{ fill: colors.tickFill, fontSize: 11 }}
+                tick={{ fill: palette.muted, fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => formatPriceShort(v)}
@@ -808,8 +970,19 @@ function ChartContent({
               />
               {/* #300 – Custom tooltip with sources, confidence, oracle count, % change */}
               <Tooltip
-                content={<CustomTooltip tzAbbr={tzAbbr} allData={visibleData as ChartPoint[]} normalised={false} />}
+                content={<CustomTooltip tzAbbr={tzAbbr} allData={visibleData as ChartPoint[]} palette={palette} normalised={false} />}
               />
+              {potentialGaps.map((gap) => (
+                <ReferenceArea
+                  key={`${gap.startTimestamp}-${gap.endTimestamp}`}
+                  x1={formatChartTimeWithTz(gap.startTimestamp, timezone)}
+                  x2={formatChartTimeWithTz(gap.endTimestamp, timezone)}
+                  fill="#f59e0b"
+                  fillOpacity={0.12}
+                  stroke="#f59e0b"
+                  strokeDasharray="4 2"
+                />
+              ))}
               {/* #305 – Annotations as vertical reference lines */}
               {localAnnotations.map((ann) => {
                 const annTime = formatChartTimeWithTz(ann.timestamp, timezone)
@@ -831,11 +1004,12 @@ function ChartContent({
               <Area
                 type="monotone"
                 dataKey="price"
-                stroke="#22d3ee"
+                stroke={palette.series[0].color}
+                strokeDasharray={palette.series[0].dash}
                 strokeWidth={2}
                 fill={`url(#priceGradient${fullScreen ? 'Fs' : ''})`}
                 dot={false}
-                activeDot={{ r: 4, fill: '#22d3ee' }}
+                activeDot={{ r: 4, fill: palette.series[0].color }}
                 isAnimationActive={shouldAnimate}
                 animationDuration={400}
                 animationEasing="ease-out"
@@ -844,6 +1018,135 @@ function ChartContent({
           </ResponsiveContainer>
         )}
       </div>
+      {coverageVisible && (
+        <section
+          className="mt-3 rounded-lg border p-3"
+          style={{ backgroundColor: palette.background, borderColor: palette.border }}
+          aria-label="Per-source observed history coverage"
+        >
+          <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label="Toggle covered sources">
+            {coverageData.series.map((item) => {
+              const seriesIndex = coverageData.series.indexOf(item)
+              const series = palette.series[seriesIndex % palette.series.length]
+              const hidden = hiddenCoverageSources.has(item.source)
+              return (
+                <button
+                  key={item.source}
+                  type="button"
+                  onClick={() =>
+                    setHiddenCoverageSources((previous) => {
+                      const next = new Set(previous)
+                      if (next.has(item.source)) next.delete(item.source)
+                      else next.add(item.source)
+                      return next
+                    })
+                  }
+                  className={`rounded border px-2 py-1 text-xs ${hidden ? 'opacity-50' : ''}`}
+                  style={{ color: series.color, borderColor: series.color }}
+                  aria-pressed={!hidden}
+                  aria-label={`Toggle ${item.source} coverage`}
+                >
+                  {item.source}: {item.percent.toFixed(1)}%
+                </button>
+              )
+            })}
+          </div>
+          {coverageData.series.length === 0 ? (
+            <p className="py-5 text-center text-sm" style={{ color: palette.muted }} role="status">
+              Per-source coverage is unavailable because the returned history contains no contributing-source data.
+            </p>
+          ) : (
+            <>
+              <div
+                className="h-32 w-full"
+                role="img"
+                aria-label={`Per-source observed coverage across ${coverageData.points.length} historical price points`}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={coverageData.points}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} />
+                    <XAxis
+                      dataKey="timestamp"
+                      tickFormatter={(timestamp: number) => formatChartTimeWithTz(timestamp, timezone)}
+                      tick={{ fill: palette.muted, fontSize: 10 }}
+                      axisLine={{ stroke: palette.border }}
+                      tickLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      domain={[0, 100]}
+                      ticks={[0, 50, 100]}
+                      tickFormatter={(value: number) => `${value}%`}
+                      tick={{ fill: palette.muted, fontSize: 10 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={48}
+                    />
+                    <Tooltip
+                      labelFormatter={(timestamp) => formatChartTimeWithTz(Number(timestamp), timezone)}
+                      formatter={(value, name) => {
+                        const item = coverageData.series.find((series) => series.dataKey === name)
+                        return [`${Number(value).toFixed(0)}%`, item?.source ?? String(name)]
+                      }}
+                      contentStyle={{
+                        backgroundColor: palette.tooltipBackground,
+                        borderColor: palette.border,
+                        color: palette.tooltipForeground,
+                      }}
+                      labelStyle={{ color: palette.tooltipMuted }}
+                      itemStyle={{ color: palette.tooltipForeground }}
+                    />
+                    {activeCoverageSeries.map((item) => {
+                      const seriesIndex = coverageData.series.indexOf(item)
+                      const series = palette.series[seriesIndex % palette.series.length]
+                      return (
+                        <Line
+                          key={item.source}
+                          type="stepAfter"
+                          dataKey={item.dataKey}
+                          name={item.source}
+                          stroke={series.color}
+                          strokeDasharray={series.dash}
+                          strokeWidth={2}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      )
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="mt-2 text-xs" style={{ color: palette.muted }}>
+                Coverage is the share of returned price points that report each source as a contributor; it does not
+                represent upstream uptime.
+              </p>
+              <div className="sr-only">
+                <table aria-label="Per-source price history coverage data">
+                  <caption>Coverage by returned historical price point</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Timestamp</th>
+                      {coverageData.series.map((item) => (
+                        <th scope="col" key={item.source}>{item.source} coverage</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coverageData.points.slice(0, 100).map((point, index) => (
+                      <tr key={`${point.timestamp}-${index}`}>
+                        <td>{formatTimestamp(point.timestamp)}</td>
+                        {coverageData.series.map((item) => (
+                          <td key={item.source}>{point[item.dataKey] === 100 ? 'Contributed' : 'Not reported'}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </section>
+      )}
       {/* #305 – Annotation controls */}
       <div className="flex items-center gap-2 mt-2 flex-shrink-0">
         <button
@@ -944,16 +1247,20 @@ function ChartContent({
               className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border"
               style={{ borderColor: ann.color ?? '#f59e0b', color: ann.color ?? '#f59e0b' }}
               title={ann.note}
+              role={ann.kind === 'quality' ? 'note' : undefined}
+              aria-label={ann.kind === 'quality' ? `${ann.label}: ${ann.note ?? ''}` : undefined}
             >
               {ann.label}
-              <button
-                type="button"
-                onClick={() => setLocalAnnotations((prev) => prev.filter((a) => a.id !== ann.id))}
-                className="ml-1 opacity-60 hover:opacity-100 transition-opacity"
-                aria-label={`Remove annotation ${ann.label}`}
-              >
-                ×
-              </button>
+              {ann.kind !== 'quality' && (
+                <button
+                  type="button"
+                  onClick={() => setLocalAnnotations((prev) => prev.filter((a) => a.id !== ann.id))}
+                  className="ml-1 opacity-60 hover:opacity-100 transition-opacity"
+                  aria-label={`Remove annotation ${ann.label}`}
+                >
+                  ×
+                </button>
+              )}
             </span>
           ))}
         </div>
@@ -976,14 +1283,17 @@ function ChartContent({
           <table className="w-full text-xs text-gray-300" aria-label={`${pair} price history data table (${tzAbbr})`}>
             <thead className="bg-gray-800 sticky top-0">
               <tr>
-                <th scope="col" className="px-3 py-2 text-left font-medium text-gray-400">
+                <th scope="col" className="px-3 py-2 text-start font-medium text-gray-400">
                   Time ({tzAbbr})
                 </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium text-gray-400">
+                <th scope="col" className="px-3 py-2 text-end font-medium text-gray-400">
                   Price (USD)
                 </th>
-                <th scope="col" className="px-3 py-2 text-right font-medium text-gray-400">
+                <th scope="col" className="px-3 py-2 text-end font-medium text-gray-400">
                   Confidence
+                </th>
+                <th scope="col" className="px-3 py-2 text-left font-medium text-gray-400">
+                  Source timestamps
                 </th>
               </tr>
             </thead>
@@ -993,6 +1303,7 @@ function ChartContent({
                   <td className="px-3 py-1.5 font-mono">{d.time}</td>
                   <td className="px-3 py-1.5 text-right font-mono">${formatPriceShort(d.price)}</td>
                   <td className="px-3 py-1.5 text-right">{(d.confidence * 100).toFixed(1)}%</td>
+                  <td className="px-3 py-1.5">{sourceTimestampSummary(d)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1010,6 +1321,7 @@ function ChartContent({
               <th scope="col">Time</th>
               <th scope="col">Price USD</th>
               <th scope="col">Confidence</th>
+              <th scope="col">Contributing source timestamps</th>
             </tr>
           </thead>
           <tbody>
@@ -1018,6 +1330,7 @@ function ChartContent({
                 <td>{d.time}</td>
                 <td>{formatPriceShort(d.price)}</td>
                 <td>{(d.confidence * 100).toFixed(1)}%</td>
+                <td>{sourceTimestampSummary(d)}</td>
               </tr>
             ))}
           </tbody>
@@ -1040,19 +1353,29 @@ export const PriceChart = memo(function PriceChart({
   overlayPairs = [],
   annotations = [],
 }: PriceChartProps) {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
+  const [theme, setTheme] = useState<ChartTheme>(() => getChartTheme())
   const [fullScreen, setFullScreen] = useState(false)
   const [internalRange, setInternalRange] = useState<TimeRange>('24h')
+  const palette = useMemo(() => getChartPalette(theme), [theme])
 
   const timeRange = externalRange ?? internalRange
   const onTimeRangeChange = externalOnChange ?? setInternalRange
 
   useEffect(() => {
+    const updateTheme = () => setTheme(getChartTheme())
     const observer = new MutationObserver(() => {
-      setDark(document.documentElement.classList.contains('dark'))
+      updateTheme()
     })
     observer.observe(document.documentElement, { attributeFilter: ['class'] })
-    return () => observer.disconnect()
+    const mediaQueries = [
+      window.matchMedia('(forced-colors: active)'),
+      window.matchMedia('(prefers-contrast: more)'),
+    ]
+    for (const mediaQuery of mediaQueries) mediaQuery.addEventListener('change', updateTheme)
+    return () => {
+      observer.disconnect()
+      for (const mediaQuery of mediaQueries) mediaQuery.removeEventListener('change', updateTheme)
+    }
   }, [])
 
   useEffect(() => {
@@ -1093,7 +1416,10 @@ export const PriceChart = memo(function PriceChart({
   }
 
   const inline = (
-    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 h-80">
+    <div
+      className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 h-80"
+      style={{ backgroundColor: palette.background, borderColor: palette.border }}
+    >
       <ChartContent
         data={data}
         pair={pair}
@@ -1101,7 +1427,7 @@ export const PriceChart = memo(function PriceChart({
         onTimeRangeChange={onTimeRangeChange}
         fullScreen={false}
         onToggleFullScreen={() => setFullScreen(true)}
-        dark={dark}
+        palette={palette}
         loadingMore={loadingMore}
         hasMore={hasMore}
         onLoadMore={onLoadMore}
@@ -1120,7 +1446,10 @@ export const PriceChart = memo(function PriceChart({
           aria-modal="true"
           aria-label={`${pair} full screen chart`}
         >
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 w-full max-w-6xl h-[80vh] flex flex-col">
+          <div
+            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 w-full max-w-6xl h-[80vh] flex flex-col"
+            style={{ backgroundColor: palette.background, borderColor: palette.border }}
+          >
             <ChartContent
               data={data}
               pair={pair}
@@ -1128,7 +1457,7 @@ export const PriceChart = memo(function PriceChart({
               onTimeRangeChange={onTimeRangeChange}
               fullScreen={true}
               onToggleFullScreen={() => setFullScreen(false)}
-              dark={dark}
+              palette={palette}
               loadingMore={loadingMore}
               hasMore={hasMore}
               onLoadMore={onLoadMore}

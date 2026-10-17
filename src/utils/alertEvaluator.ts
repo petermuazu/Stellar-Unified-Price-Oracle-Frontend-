@@ -7,17 +7,41 @@
  * `alertEvaluator.test.ts`'s truth tables and reused as-is by `useAlerts`'s
  * evaluation loop.
  */
-import type { AlertCondition, AlertFormData, ConditionGroup, LogicOperator, PriceEvaluationState } from '../types'
+import {
+  isConditionGroup,
+  nextConditionId,
+  singleConditionGroup,
+  type AlertCondition,
+  type AlertFormData,
+  type ConditionGroup,
+  type LogicOperator,
+  type PriceEvaluationState,
+} from '../types'
 import { isScheduleActive } from './alertSchedule'
-import { isConditionGroup, nextConditionId, singleConditionGroup } from '../types'
+
+export interface ConditionEvaluationTrace {
+  conditionId: string
+  field: AlertCondition['field']
+  operator: AlertCondition['operator']
+  expected: number
+  actual: number | null
+  matched: boolean
+  reason: 'schedule_inactive' | 'condition_not_met' | null
+}
+
+export interface CompoundEvaluationTrace {
+  matched: boolean
+  conditions: ConditionEvaluationTrace[]
+}
 
 /** Evaluates a single leaf condition against the current price state. */
 export function evaluateCondition(condition: AlertCondition, state: PriceEvaluationState): boolean {
   if (condition.field === 'schedule') {
-    return condition.schedule !== undefined && state.nowMs !== undefined && isScheduleActive(condition.schedule, state.nowMs)
+    return (
+      condition.schedule !== undefined && state.nowMs !== undefined && isScheduleActive(condition.schedule, state.nowMs)
+    )
   }
-  const actual =
-    condition.field === 'price' ? state.price : (state.percentageChange?.[condition.window ?? '1hr'] ?? 0)
+  const actual = condition.field === 'price' ? state.price : (state.percentageChange?.[condition.window ?? '1hr'] ?? 0)
 
   switch (condition.operator) {
     case 'gt':
@@ -33,6 +57,43 @@ export function evaluateCondition(condition: AlertCondition, state: PriceEvaluat
     default:
       return false
   }
+}
+
+/** Evaluates a condition tree and retains each leaf result for the rule timeline. */
+export function evaluateCompoundConditionWithTrace(
+  group: ConditionGroup,
+  state: PriceEvaluationState,
+): CompoundEvaluationTrace {
+  const conditions: ConditionEvaluationTrace[] = []
+
+  const visit = (node: AlertCondition | ConditionGroup): boolean => {
+    if (isConditionGroup(node)) {
+      if (node.conditions.length === 0) return node.logic === 'AND'
+      const results = node.conditions.map(visit)
+      return node.logic === 'AND' ? results.every(Boolean) : results.some(Boolean)
+    }
+
+    const isSchedule = node.field === 'schedule'
+    const actual =
+      node.field === 'price'
+        ? state.price
+        : node.field === 'percentageChange'
+          ? (state.percentageChange?.[node.window ?? '1hr'] ?? 0)
+          : null
+    const matched = evaluateCondition(node, state)
+    conditions.push({
+      conditionId: node.id,
+      field: node.field,
+      operator: node.operator,
+      expected: node.value,
+      actual,
+      matched,
+      reason: matched ? null : isSchedule ? 'schedule_inactive' : 'condition_not_met',
+    })
+    return matched
+  }
+
+  return { matched: visit(group), conditions }
 }
 
 /**
@@ -54,8 +115,21 @@ export function evaluateCompoundCondition(group: ConditionGroup, state: PriceEva
   return group.logic === 'AND' ? results.every(Boolean) : results.some(Boolean)
 }
 
+/** Returns the first sampled price satisfying a condition group, if any. */
+export function findFirstMatchingPrice(
+  group: ConditionGroup,
+  prices: number[],
+  stateForPrice: (price: number) => PriceEvaluationState,
+): number | undefined {
+  return prices.find((price) => evaluateCompoundCondition(group, stateForPrice(price)))
+}
+
 /** Combines a primary leaf condition with zero or more extra conditions under `logic`. */
-export function combineConditions(primary: AlertCondition, extras: AlertCondition[], logic: LogicOperator): ConditionGroup {
+export function combineConditions(
+  primary: AlertCondition,
+  extras: AlertCondition[],
+  logic: LogicOperator,
+): ConditionGroup {
   if (extras.length === 0) return singleConditionGroup(primary)
   return { id: nextConditionId('grp'), logic, conditions: [primary, ...extras] }
 }
@@ -78,10 +152,22 @@ export function buildConditionGroupFromFormData(form: AlertFormData): ConditionG
     const threshold = Number.parseFloat(form.percentageThreshold)
     const window = form.percentageWindow
     if (form.percentageDirection !== 'down') {
-      primaryConditions.push({ id: nextConditionId(), field: 'percentageChange', operator: 'gte', value: threshold, window })
+      primaryConditions.push({
+        id: nextConditionId(),
+        field: 'percentageChange',
+        operator: 'gte',
+        value: threshold,
+        window,
+      })
     }
     if (form.percentageDirection !== 'up') {
-      primaryConditions.push({ id: nextConditionId(), field: 'percentageChange', operator: 'lte', value: -threshold, window })
+      primaryConditions.push({
+        id: nextConditionId(),
+        field: 'percentageChange',
+        operator: 'lte',
+        value: -threshold,
+        window,
+      })
     }
   } else if (!form.percentageMode) {
     const upper = form.upperThreshold ? Number.parseFloat(form.upperThreshold) : null
@@ -98,5 +184,9 @@ export function buildConditionGroupFromFormData(form: AlertFormData): ConditionG
   // the user's chosen logic operator. The primary group is nested as-is so its
   // internal OR (either-boundary / either-direction) semantics are preserved even
   // when combined with extras via AND.
-  return { id: nextConditionId('grp'), logic: form.conditionsLogic, conditions: [primaryGroup, ...form.extraConditions] }
+  return {
+    id: nextConditionId('grp'),
+    logic: form.conditionsLogic,
+    conditions: [primaryGroup, ...form.extraConditions],
+  }
 }

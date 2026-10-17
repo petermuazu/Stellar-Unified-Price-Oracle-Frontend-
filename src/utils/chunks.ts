@@ -9,6 +9,7 @@ export const chunkLoaders = {
   notFound: () => import('../pages/NotFound'),
   security: () => import('../pages/Security'),
   governance: () => import('../pages/Governance'),
+  portfolio: () => import('../pages/Portfolio'),
   priceChart: () => import('../components/PriceChart'),
   priceTable: () => import('../components/PriceTableView'),
   priceHistoryTable: () => import('../components/PriceHistoryTable'),
@@ -22,6 +23,7 @@ export const preloadDashboard = () => preloadChunk('route-dashboard', chunkLoade
 export const preloadPriceDetail = () => preloadChunk('route-price-detail', chunkLoaders.priceDetail)
 export const preloadApiDocs = () => preloadChunk('route-api-docs', chunkLoaders.apiDocs)
 export const preloadGovernance = () => preloadChunk('route-governance', chunkLoaders.governance)
+export const preloadPortfolio = () => preloadChunk('route-portfolio', chunkLoaders.portfolio)
 export const preloadPriceChart = () => preloadChunk('feature-price-chart', chunkLoaders.priceChart)
 export const preloadPriceTable = () => preloadChunk('feature-price-table', chunkLoaders.priceTable)
 export const preloadPriceHistoryTable = () =>
@@ -49,6 +51,7 @@ export const LazyGovernance = lazy(() =>
     default: module.Governance,
   })),
 )
+export const LazyPortfolio = lazy(() => preloadPortfolio().then((module) => ({ default: module.Portfolio })))
 export const LazyPriceChart = lazy(() => preloadPriceChart().then((module) => ({ default: module.PriceChart })))
 export const LazyPriceTable = lazy(() => preloadPriceTable().then((module) => ({ default: module.PriceTableView })))
 export const LazyPriceHistoryTable = lazy(() =>

@@ -8,7 +8,7 @@ export function PriceDetailSkeleton(): ReactElement {
       <div className="flex items-center gap-3 mb-6">
         <SkeletonBone className="h-8 w-8 rounded-lg" />
         <SkeletonBone className="h-7 w-40 rounded" />
-        <SkeletonBone className="h-5 w-10 rounded-full ml-2" />
+        <SkeletonBone className="h-5 w-10 rounded-full ms-2" />
       </div>
 
       {/* Price block */}

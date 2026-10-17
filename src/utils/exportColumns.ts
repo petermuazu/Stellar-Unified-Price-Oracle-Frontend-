@@ -1,6 +1,6 @@
 /** Column definitions for the price data export (#317). */
 
-export type ExportColumnKey = 'assetPair' | 'price' | 'timestamp' | 'confidence' | 'sources'
+export type ExportColumnKey = 'assetPair' | 'price' | 'timestamp' | 'confidence' | 'sources' | 'sourceTickProvenanceUrl'
 
 export interface ExportColumnDef {
   key: ExportColumnKey
@@ -14,6 +14,7 @@ export const EXPORT_COLUMNS: ExportColumnDef[] = [
   { key: 'timestamp', label: 'Timestamp' },
   { key: 'confidence', label: 'Confidence' },
   { key: 'sources', label: 'Sources' },
+  { key: 'sourceTickProvenanceUrl', label: 'Source-tick provenance URL' },
 ]
 
 export const EXPORT_COLUMN_KEYS: ExportColumnKey[] = EXPORT_COLUMNS.map((c) => c.key)
@@ -23,7 +24,7 @@ export type ColumnPresetName = 'minimal' | 'standard' | 'full'
 export const COLUMN_PRESETS: Record<ColumnPresetName, ExportColumnKey[]> = {
   minimal: ['assetPair', 'price'],
   standard: ['assetPair', 'price', 'timestamp', 'confidence'],
-  full: ['assetPair', 'price', 'timestamp', 'confidence', 'sources'],
+  full: ['assetPair', 'price', 'timestamp', 'confidence', 'sources', 'sourceTickProvenanceUrl'],
 }
 
 /** Keeps only recognised column keys, in the order supplied. Falls back to all columns when empty/invalid. */

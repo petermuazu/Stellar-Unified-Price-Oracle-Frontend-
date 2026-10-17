@@ -17,7 +17,7 @@ import { formatTimestamp, timeAgo } from '../utils/format'
 import { Tooltip } from './Tooltip'
 
 const FRESH_THRESHOLD_MS = 30_000
-const AGING_THRESHOLD_MS = 120_000
+export const PRICE_AGING_THRESHOLD_MS = 120_000
 const TICK_MS = 1000
 
 interface FreshnessBadgeProps {
@@ -37,7 +37,7 @@ export const FreshnessBadge = memo(function FreshnessBadge({ timestamp, refreshI
 
   const age = now - timestamp
   const color =
-    age < FRESH_THRESHOLD_MS ? 'bg-green-500' : age < AGING_THRESHOLD_MS ? 'bg-yellow-500' : 'bg-red-500'
+    age < FRESH_THRESHOLD_MS ? 'bg-green-500' : age < PRICE_AGING_THRESHOLD_MS ? 'bg-yellow-500' : 'bg-red-500'
   const nextRefreshInSec = Math.max(0, Math.ceil((timestamp + refreshIntervalMs - now) / 1000))
 
   return (

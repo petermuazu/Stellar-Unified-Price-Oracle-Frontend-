@@ -1,6 +1,7 @@
 import { memo, useState, useCallback } from 'react'
 import type { PriceHistoryEntry } from '../types'
 import { formatPrice, formatTimestamp } from '../utils/format'
+import { getSourceTimestampState } from '../utils/sourceTimestamps'
 
 type SortKey = 'timestamp' | 'price' | 'confidence'
 type SortDir = 'asc' | 'desc'
@@ -57,7 +58,7 @@ export const PriceHistoryTable = memo(function PriceHistoryTable({ data }: Price
                 key={key}
                 scope="col"
                 onClick={() => handleSort(key)}
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none whitespace-nowrap hover:text-gray-200 transition-colors"
+                className="px-4 py-3 text-start text-xs font-semibold text-gray-400 uppercase tracking-wide cursor-pointer select-none whitespace-nowrap hover:text-gray-200 transition-colors"
                 aria-sort={sortKey === key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
               >
                 <span className="flex items-center gap-1">
@@ -65,13 +66,24 @@ export const PriceHistoryTable = memo(function PriceHistoryTable({ data }: Price
                   {sortKey === key ? (
                     <span aria-hidden="true">{sortDir === 'asc' ? '↑' : '↓'}</span>
                   ) : (
-                    <span className="text-gray-700" aria-hidden="true">↕</span>
+                    <span className="text-gray-700" aria-hidden="true">
+                      ↕
+                    </span>
                   )}
                 </span>
               </th>
             ))}
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">
+            <th
+              scope="col"
+              className="px-4 py-3 text-start text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
+            >
               Sources
+            </th>
+            <th
+              scope="col"
+              className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap"
+            >
+              Source timestamps
             </th>
           </tr>
         </thead>
@@ -83,6 +95,45 @@ export const PriceHistoryTable = memo(function PriceHistoryTable({ data }: Price
               <td className="px-4 py-3 text-cyan-400 whitespace-nowrap">{(entry.confidence * 100).toFixed(1)}%</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className="text-gray-400">{entry.sources.join(', ')}</span>
+              </td>
+              <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
+                {entry.sources.length === 0 ? (
+                  <span>Unavailable — no contributors reported</span>
+                ) : (
+                  <ul className="space-y-1">
+                    {entry.sources.map((source) => {
+                      const sourceTimestamp = entry.sourceTimestamps?.find((item) => item.source === source)
+                      const state = getSourceTimestampState(sourceTimestamp, entry.timestamp)
+                      if (!sourceTimestamp) {
+                        return (
+                          <li key={source} className="whitespace-nowrap">
+                            <span className="font-medium">{source}: </span>
+                            <span>Unavailable from API</span>
+                          </li>
+                        )
+                      }
+                      return (
+                        <li key={source} className="whitespace-nowrap">
+                          <span className="font-medium">{source}: </span>
+                          {state === 'unavailable' ? (
+                            <span>Unavailable from API</span>
+                          ) : (
+                            <>
+                              <time dateTime={new Date(sourceTimestamp.timestamp).toISOString()}>
+                                {formatTimestamp(sourceTimestamp.timestamp)}
+                              </time>
+                              {state === 'stale' && (
+                                <span className="ml-1 font-semibold text-amber-800 dark:text-amber-300">
+                                  (stale)
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
               </td>
             </tr>
           ))}

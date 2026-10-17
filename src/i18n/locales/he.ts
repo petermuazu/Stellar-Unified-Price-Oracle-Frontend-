@@ -206,6 +206,7 @@ const he = {
       mustBePositive: 'חייב להיות מספר חיובי',
       upperGreaterThanLower: 'חייב להיות גדול מהסף התחתון',
       lowerLessThanUpper: 'חייב להיות קטן מהסף העליון',
+      invalidDate: 'יש להזין תאריך תקין',
     },
     conditions: {
       title: 'תנאים נוספים',
@@ -242,6 +243,30 @@ const he = {
       error_invalidDelay: 'שלב {{step}}: העיכוב חייב להיות מספר דקות שאינו שלילי',
       error_outOfOrder: 'שלב {{step}}: העיכוב לא יכול להיות מוקדם מהשלב הקודם',
     },
+    lifecycle: {
+      title: 'מחזור חיי הכלל',
+      expiryLabel: 'תאריך תפוגה (אופציונלי)',
+      reviewLabel: 'תזכורת לבדיקה (אופציונלי)',
+      description: 'תאריך התפוגה משבית את הכלל בסוף היום המקומי. תאריך הבדיקה הוא תזכורת בלבד.',
+    },
+    channels: {
+      title: 'שליחת התראה דרך',
+      description: 'יש לבחור היכן ההתראה תימסר. השאר ריק כדי להשתמש בערוצים שהוגדרו בהגדרות ההתראות.',
+      useGlobal: 'שימוש בברירות המחדל הגלובליות',
+      noneConfigured: 'לא הוגדרו ערוצים — יש להגדיר ערוצים בהגדרות ההתראות תחילה.',
+      readiness: {
+        title: 'מוכנות הערוצים',
+        remoteNote: 'נבדקות רק הגדרות מקומיות והרשאת דפדפן; המסירה המרוחקת אינה נבדקת.',
+        blocked: 'יש לפתור בעיות מוכנות בערוצים לפני השמירה.',
+        ready: 'מוכן מקומית',
+        disabled: 'הערוץ מושבת בהגדרות ההתראות',
+        missingConfiguration: 'חסרה הגדרה נדרשת לערוץ',
+        missingSecret: 'חסר סוד זמני למושב; יש להזין אותו מחדש בהגדרות ההתראות',
+        permissionRequired: 'לא ניתנה הרשאת התראות בדפדפן',
+        permissionDenied: 'התראות הדפדפן נדחו; יש לשנות את ההרשאה בהגדרות הדפדפן',
+        unsupported: 'התראות דפדפן אינן זמינות בסביבה זו',
+      },
+    },
     presets: {
       title: 'התחל מתבנית',
       myPresets: 'התבניות שלי',
@@ -259,6 +284,24 @@ const he = {
     newBadge: '{{count}} חדש',
     empty: 'טרם הוגדרו התראות',
     close: 'סגור פאנל התראות',
+    delivery: {
+      title: 'ניסיונות מסירה',
+      empty: 'לא נרשמו ניסיונות בהפעלה זו; ההיסטוריה הקודמת אינה זמינה.',
+      status_queued: 'מנסה שוב',
+      status_delivered: 'התקבל',
+      status_failed: 'נכשל',
+      attemptCount: '{{count}} ניסיונות',
+      attemptDelivered: 'ניסיון {{attempt}} התקבל',
+      attemptFailed: 'ניסיון {{attempt}} נכשל: {{error}}',
+      unknownError: 'שגיאה לא ידועה',
+    },
+    lifecycle: {
+      title: 'לוח זמנים לכלל',
+      expired: 'פג תוקף',
+      expiresOn: 'פג תוקף ב־{{date}}',
+      reviewDue: 'מועד הבדיקה הגיע',
+      reviewOn: 'בדיקה ב־{{date}}',
+    },
     sections: {
       triggered: 'הופעל',
       active: 'התראות פעילות',
@@ -314,6 +357,23 @@ const he = {
     tabs: {
       alerts: 'התראות',
       history: 'היסטוריה',
+      archived: 'בארכיון',
+    },
+    bulk: {
+      selectRules: 'בחירת כללים ({{count}} נבחרו)',
+      selectAll: 'בחירת הכול',
+      clearSelection: 'ניקוי הבחירה',
+      pause: 'השהיית הכללים שנבחרו',
+      archive: 'העברת הכללים שנבחרו לארכיון',
+      editDates: 'עריכת תאריכים קבוצתית',
+      applyExpiry: 'שינוי תאריך תפוגה',
+      applyReview: 'שינוי תזכורת לבדיקה',
+      expiryHelp: 'יש לבחור תאריך או להשאיר ריק כדי להסיר תפוגה. התפוגה בסוף היום המקומי.',
+      reviewHelp: 'יש לבחור תאריך או להשאיר ריק כדי להסיר את התזכורת.',
+      saveDates: 'החלת שינויי תאריך',
+      cancel: 'ביטול',
+      restore: 'שחזור הכלל',
+      archivedEmpty: 'אין כללים בארכיון',
     },
     history: {
       empty: 'טרם הופעלו התראות',
@@ -406,6 +466,8 @@ const he = {
     confidence: 'ביטחון {{value}}%',
     updated: 'עודכן {{time}}',
     historyError: 'טעינת היסטוריית מחירים נכשלה: {{message}}',
+    historyStorageWarning:
+      'האחסון בדפדפן מתקרב למגבלה. הדפדפן עשוי להסיר היסטוריית מחירים שנשמרה מקומית; המחירים החיים אינם מושפעים.',
     emptyState: {
       title: 'אין נתוני מחיר זמינים',
       detail: 'אין נתוני מחיר זמינים עבור זוג זה.',
@@ -463,6 +525,7 @@ const he = {
     fields: {
       refreshInterval: 'מרווח רענון',
       chartTimeRange: 'טווח זמן גרף',
+      chartHistoryPageSize: 'נקודות היסטוריה בכל עמוד',
       staleThreshold: 'סף נכסים ישנים',
     },
     accessibility: {

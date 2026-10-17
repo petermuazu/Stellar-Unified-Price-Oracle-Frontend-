@@ -7,12 +7,12 @@ types, or anything matching the PII denylist (email, wallet/public keys, pair/as
 URLs, etc.) are dropped. Timestamps are truncated to the hour; `installId` is a random UUID
 not derived from user data.
 
-| Event | Properties | Purpose | Retention |
-|-------|-----------|---------|-----------|
+| Event              | Properties               | Purpose                                | Retention                                                                        |
+| ------------------ | ------------------------ | -------------------------------------- | -------------------------------------------------------------------------------- |
 | `dashboard_loaded` | `success`, `durationMs?` | Activation KPI (first successful load) | Local buffer, last 1000 events; server-side 90 days if an endpoint is configured |
-| `feature_used` | `feature` (enum) | Feature adoption KPI | same |
-| `route_viewed` | `route` (enum) | Retention / navigation funnels | same |
-| `error_shown` | `kind` (enum) | Reliability of user-facing errors | same |
+| `feature_used`     | `feature` (enum)         | Feature adoption KPI                   | same                                                                             |
+| `route_viewed`     | `route` (enum)           | Retention / navigation funnels         | same                                                                             |
+| `error_shown`      | `kind` (enum)            | Reliability of user-facing errors      | same                                                                             |
 
 No pair-level or user-identifying data is ever collected.
 
@@ -43,7 +43,7 @@ The `/dev/kpi` route renders these. It is registered only in dev or when
 A reported `confidence` is a 0–1 number attached to an aggregate. Operationally it is a
 **claim about realized accuracy**: a confidence of `c` asserts that aggregates reported at
 `c` are correct against the reference oracle roughly `c` of the time (equivalently, that the
-realized error rate is about `1 - c`). It is *not* a measure of sample size, freshness, or
+realized error rate is about `1 - c`). It is _not_ a measure of sample size, freshness, or
 source count — those feed into the confidence model (`src/services/aggregation/confidence.ts`)
 but the number itself is only meaningful if it tracks realized error.
 
@@ -81,3 +81,34 @@ Confidence-model changes are gated against calibration bounds in CI: the study r
 recorded history fixture and fails when the reliability curve drifts beyond the configured
 bound (max per-bucket calibration error) or when the monotonicity check is violated. This keeps
 an uncalibrated confidence number from shipping.
+
+## Multi-pair comparison analytics
+
+The benchmark comparison on a price detail page uses fetched price-history
+observations for the selected pair and benchmark:
+
+- **Interval boundaries** are local date/time inputs. Both boundaries are inclusive;
+  the displayed observed boundaries identify the first and last aligned observations
+  actually used. The client does not interpolate or extrapolate a price at a requested
+  boundary. Price observations are aligned within 60 seconds; only positive finite
+  prices are used.
+- **Absolute change** is the difference between the first and last observed prices.
+  **Return** is that price change relative to the first observed price. **Excess
+  return** subtracts the benchmark's return over the same aligned observations.
+- **Return correlation** is Pearson correlation of simple returns, not price levels,
+  within the selected interval. It is unavailable unless at least two paired return
+  observations exist.
+- **Rolling beta** is covariance(asset simple returns, benchmark simple returns)
+  divided by benchmark-return variance, over the selected rolling count. It is
+  unavailable for an undersized sample or zero benchmark variance.
+- **Volatility regimes** use the selected pair's rolling sample standard deviation of
+  simple returns. Low, normal, and high labels are relative tertiles of the volatility
+  observations in the selected interval; they are descriptive client-side
+  classifications, not oracle-provided signals or forecasts.
+
+The controls operate only on the observations already loaded for the two pairs
+(currently the price-detail history page size). A longer requested period requires
+additional history to be loaded or a future pagination/range-fetch UI. No API change
+is needed for the current implementation: the existing history endpoint provides
+timestamped price entries. A future server-side range query would need to preserve
+ordered timestamps and document its boundary-inclusion semantics.

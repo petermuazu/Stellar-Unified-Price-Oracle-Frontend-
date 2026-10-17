@@ -51,8 +51,12 @@ import type { PriceData, PriceSyncState } from '../types'
 import { formatPrice } from '../utils/format'
 import { usePreferences } from '../preferences/PreferencesContext'
 import { useActiveSource } from '../hooks/useActiveSource'
+import type { ObservedSourceRange as ObservedSourceRangeData } from '../utils/uncertaintyBand'
 import { FreshnessBadge } from './FreshnessBadge'
+import { ObservedSourceRange } from './ObservedSourceRange'
 import { Tooltip } from './Tooltip'
+import { PairMetadataPanel } from './PairMetadataPanel'
+import { FeedSymbolDiagnostics } from './FeedSymbolDiagnostics'
 
 const SOURCE_COLORS: Record<string, string> = {
   // Cards are always dark (bg-gray-900), so badge text always uses the
@@ -96,6 +100,8 @@ interface PriceCardProps {
   selectMode?: boolean
   /** Whether this card is currently selected in multi-select mode. */
   isSelected?: boolean
+  /** Current source-reported price envelope, omitted when unavailable or stale. */
+  observedSourceRange?: ObservedSourceRangeData | null
 }
 
 export const PriceCard = memo(function PriceCard({
@@ -106,6 +112,7 @@ export const PriceCard = memo(function PriceCard({
   onAlertClick,
   selectMode,
   isSelected,
+  observedSourceRange = null,
 }: PriceCardProps) {
   const { t } = useTranslation()
   const { preferences } = usePreferences()
@@ -137,7 +144,7 @@ export const PriceCard = memo(function PriceCard({
   return (
     <div
       data-testid="price-card"
-      className={`w-full text-left bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer ${isStale ? 'opacity-60' : ''} ${isSelected ? 'border-cyan-500 ring-2 ring-cyan-500/40' : 'border-gray-800'}`}
+      className={`w-full text-start bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer ${isStale ? 'opacity-60' : ''} ${isSelected ? 'border-cyan-500 ring-2 ring-cyan-500/40' : 'border-gray-800'}`}
     >
       {/*
        * The card body and the alert control are *sibling* interactive
@@ -174,13 +181,12 @@ export const PriceCard = memo(function PriceCard({
         </div>
 
         <div className="text-3xl font-bold text-white mb-3 font-mono tracking-tight">${formatPrice(price.price)}</div>
+        <ObservedSourceRange range={observedSourceRange} compact showUnavailable={false} />
 
-        <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
-          <FreshnessBadge timestamp={price.timestamp} refreshIntervalMs={preferences.refreshInterval} />
-          <Tooltip content={t('priceCard.confidenceTooltip')}>
-            <span className="text-cyan-400">{t('priceCard.confidence', { value: confidencePct })}</span>
-          </Tooltip>
-        </div>
+        {price.pairMetadata && <PairMetadataPanel pair={assetPair} metadata={price.pairMetadata} compact />}
+        {price.pairMetadata?.feedSymbols && (
+          <FeedSymbolDiagnostics pair={assetPair} feedSymbols={price.pairMetadata.feedSymbols} compact />
+        )}
 
         <div className="flex flex-wrap gap-1.5">
           {price.sources.map((src) => (
@@ -197,12 +203,29 @@ export const PriceCard = memo(function PriceCard({
               <span
                 className={`px-2 py-0.5 rounded text-xs font-medium border transition-colors ${SOURCE_COLORS[src] ?? 'bg-gray-800 text-gray-300 border-gray-700'} ${src === activeSource ? 'ring-1 ring-cyan-400' : ''}`}
               >
-                {src === activeSource && <span aria-hidden="true">● </span>}
+                {src === activeSource && (
+                  <span aria-hidden="true" className="me-1">
+                    ●
+                  </span>
+                )}
                 {src}
               </span>
             </Tooltip>
           ))}
         </div>
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
+        <span className="inline-flex items-center">
+          <FreshnessBadge timestamp={price.timestamp} refreshIntervalMs={preferences.refreshInterval} />
+          <MetricHelp topic="staleness" />
+        </span>
+        <span className="inline-flex items-center">
+          <Tooltip content={t('priceCard.confidenceTooltip')}>
+            <span className="text-cyan-400">{t('priceCard.confidence', { value: confidencePct })}</span>
+          </Tooltip>
+          <MetricHelp topic="confidence" />
+        </span>
       </div>
 
       <div className="mt-3 pt-3 border-t border-gray-800">

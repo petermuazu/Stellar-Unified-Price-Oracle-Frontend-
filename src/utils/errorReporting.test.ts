@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   reportError,
+  createClientTraceId,
   withErrorHandler,
   withSyncErrorHandler,
   createErrorContext,
@@ -55,7 +56,8 @@ describe('Error Reporting', () => {
       reportError(error, { context })
 
       const stored = getStoredErrorReports()
-      expect(stored[0].context).toEqual(context)
+      expect(stored[0].context).toMatchObject(context)
+      expect(stored[0].context?.traceId).toMatch(/^trace-/)
     })
 
     it('handles string errors', () => {
@@ -83,6 +85,22 @@ describe('Error Reporting', () => {
       const stored = getStoredErrorReports()
       expect(stored[0].stack).toBeDefined()
       expect(stored[0].stack).toContain('Error')
+    })
+
+    it('attaches a trace identifier to stored reports and their reporting context', () => {
+      const traceId = createClientTraceId()
+      reportError('Request failed', { context: { operation: 'fetch-price', traceId } })
+
+      const [report] = getStoredErrorReports()
+      expect(report.traceId).toBe(traceId)
+      expect(report.context?.traceId).toBe(traceId)
+      expect(traceId).toMatch(/^trace-/)
+    })
+
+    it('generates a trace identifier when a report does not supply one', () => {
+      reportError('Request failed')
+
+      expect(getStoredErrorReports()[0].traceId).toMatch(/^trace-/)
     })
   })
 

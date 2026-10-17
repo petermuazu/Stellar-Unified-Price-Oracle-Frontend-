@@ -69,6 +69,20 @@ describe('PreferencesPanel', () => {
     expect(select).toHaveValue(String(DEFAULT_PREFERENCES.staleThresholdMinutes))
   })
 
+  it('lets users reduce chart history pages and slow refreshes for constrained links', async () => {
+    const user = userEvent.setup()
+    render(<PreferencesPanel />, { wrapper: Wrapper })
+
+    const pageSize = screen.getByLabelText('Chart history points per page')
+    expect(pageSize).toHaveValue('100')
+    await user.selectOptions(pageSize, '50')
+    expect(pageSize).toHaveValue('50')
+
+    const refreshInterval = screen.getByLabelText('Refresh interval')
+    await user.selectOptions(refreshInterval, '300000')
+    expect(refreshInterval).toHaveValue('300000')
+  })
+
   it('undo and redo buttons are disabled by default', () => {
     render(<PreferencesPanel />, { wrapper: Wrapper })
     expect(screen.getByRole('button', { name: 'Undo last preference change' })).toBeDisabled()

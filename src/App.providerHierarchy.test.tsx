@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
@@ -123,5 +123,16 @@ describe('App provider hierarchy', () => {
 
     expect(await screen.findByRole('heading', { name: 'Price Oracle Dashboard' }, FIND)).toBeInTheDocument()
     expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
+  })
+
+  it('keeps a single live region mounted across route changes', async () => {
+    render(<AppContent />, { wrapper: Wrapper })
+    await screen.findByRole('heading', { name: 'Price Oracle Dashboard' }, FIND)
+    const politeRegion = screen.getByTestId('live-region-polite')
+
+    fireEvent.click(screen.getAllByRole('link', { name: 'API Docs' })[0])
+
+    expect(screen.getAllByTestId('live-region-polite')).toHaveLength(1)
+    expect(screen.getByTestId('live-region-polite')).toBe(politeRegion)
   })
 })

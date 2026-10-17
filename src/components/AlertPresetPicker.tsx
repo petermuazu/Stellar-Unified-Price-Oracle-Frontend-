@@ -107,7 +107,7 @@ export function AlertPresetPicker({
             key={preset.id}
             type="button"
             onClick={() => onSelectPreset(preset)}
-            className="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            className="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
           >
             <div className="flex items-center gap-1.5 text-cyan-400 mb-1">
               {ICONS[preset.icon]}
@@ -133,10 +133,10 @@ export function AlertPresetPicker({
                 <button
                   type="button"
                   onClick={() => onSelectCustom(preset)}
-                  className="flex-1 text-left text-sm text-gray-200 hover:text-cyan-400 transition-colors"
+                  className="flex-1 text-start text-sm text-gray-200 hover:text-cyan-400 transition-colors"
                 >
                   {preset.name}
-                  {preset.description && <span className="text-xs text-gray-500 ml-2">{preset.description}</span>}
+                  {preset.description && <span className="text-xs text-gray-500 ms-2">{preset.description}</span>}
                 </button>
                 <button
                   type="button"

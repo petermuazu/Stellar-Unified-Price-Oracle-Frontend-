@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isSecureProvenanceUrl } from '../utils/provenance'
 
 /**
  * Strict Zod schema for {@link import('../types/price').PriceData}.
@@ -10,6 +11,25 @@ export const PriceDataSchema = z.object({
   timestamp: z.number().int().min(0),
   confidence: z.number().min(0).max(1),
   sources: z.array(z.string().min(1)),
+  pairMetadata: z
+    .object({
+      baseUnit: z.string().min(1).nullable(),
+      quoteUnit: z.string().min(1).nullable(),
+      priceScale: z.number().int().min(0).max(100).nullable(),
+      feedSymbols: z
+        .record(
+          z.string().min(1),
+          z.object({
+            status: z.enum(['matched', 'renamed', 'unknown', 'missing']),
+            canonicalSymbol: z.string().min(1).nullable(),
+            observedSymbol: z.string().min(1).nullable(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+  sourcePrices: z.record(z.string().min(1), z.number().finite()).optional(),
+  sourcePriceDecimals: z.record(z.string().min(1), z.number().int().min(0).max(100)).optional(),
 })
 
 /**
@@ -23,12 +43,18 @@ export const ExcludedSourceTickSchema = z.object({
   reason: z.string(),
 })
 
+export const SourceTimestampSchema = z.object({
+  source: z.string().min(1),
+  timestamp: z.number().int().nonnegative(),
+})
+
 export const PriceHistoryEntrySchema = z.object({
   price: z.number().finite(),
   timestamp: z.number().int().min(0),
   confidence: z.number().min(0).max(1),
   sources: z.array(z.string().min(1)),
   excludedSources: z.array(ExcludedSourceTickSchema).optional(),
+  sourceTimestamps: z.array(SourceTimestampSchema).optional(),
 })
 
 export const PriceHistoryResponseSchema = z.object({
@@ -118,6 +144,8 @@ export const AlertSchema = z.object({
 
   // Alert type: one-time vs persistent (#312)
   triggerOnce: z.boolean(),
+  notifyOnRecovery: z.boolean().default(false),
+  breachActive: z.boolean().default(false),
   fireCount: z.number().int().min(0).default(0),
 
   // Percentage-based alert fields (#307)
@@ -154,6 +182,9 @@ export const AlertSchema = z.object({
   active: z.boolean(),
   createdAt: z.number(),
   lastTriggeredAt: z.number().nullable(),
+  expiresAt: z.number().nullable().default(null),
+  reviewAt: z.number().nullable().default(null),
+  archived: z.boolean().default(false),
 })
 
 export const AlertsArraySchema = z.array(AlertSchema)
@@ -173,6 +204,15 @@ export const AlertHistoryEntrySchema = z.object({
   percentageThreshold: z.number().nullable().default(null),
   percentageWindow: z.enum(['5min', '15min', '1hr', '24hr']).nullable().default(null),
   percentageDirection: z.enum(['up', 'down', 'either']).nullable().default(null),
+  evidence: z
+    .object({
+      timestamp: z.number().int().min(0),
+      confidence: z.number().min(0).max(1),
+      sources: z.array(z.string().min(1)),
+      sourcePrices: z.record(z.string(), z.number().finite()).optional(),
+    })
+    .nullable()
+    .optional(),
   // Escalation step metadata (#487) — present only on escalation-fired entries.
   escalation: z
     .object({ stepId: z.string(), channel: NotificationChannelIdSchema, delayMinutes: z.number() })
@@ -201,6 +241,7 @@ export const WsPriceUpdateSchema = z.object({
    * Keys are source names; values are individual source prices.
    */
   sourcePrices: z.record(z.string(), z.number()).optional(),
+  qualityFlags: PriceDataSchema.shape.qualityFlags,
   /** Optional monotonic sequence number for duplicate detection. */
   seq: z.number().optional(),
 })

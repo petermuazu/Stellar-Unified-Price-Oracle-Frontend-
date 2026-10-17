@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   formatPrice,
+  formatCurrency,
   formatPriceShort,
   formatChartPrice,
   formatTimestamp,
@@ -17,6 +18,34 @@ describe('Locale-aware formatting', () => {
     it('formats prices with en-US locale (default)', () => {
       expect(formatPrice(1234.5678)).toBe('1,234.57')
       expect(formatPrice(1234.5678, 'en-US')).toBe('1,234.57')
+    })
+
+    describe('supported-language Intl formatting', () => {
+      const locales = ['en-US', 'es-ES', 'fr-FR', 'ja-JP', 'ar-SA', 'he']
+
+      it.each(locales)('formats numbers, dates, and currency for %s', (locale) => {
+        expect(formatPrice(1234.5, locale)).not.toBe('')
+        expect(formatTimestamp(testTimestamp, locale)).not.toBe('')
+        expect(formatCurrency(1234.5, 'USD', locale)).toBe(
+          new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' }).format(1234.5),
+        )
+        expect(
+          new Intl.NumberFormat(locale, { style: 'currency', currency: 'USD' })
+            .formatToParts(1234.5)
+            .some((part) => part.type === 'currency'),
+        ).toBe(true)
+      })
+
+      it.each(locales)('uses that locale’s cardinal plural rules: %s', (locale) => {
+        expect(new Intl.PluralRules(locale).select(1)).toBe(locale === 'ja-JP' ? 'other' : 'one')
+        expect(new Intl.PluralRules(locale).select(2)).toMatch(/^(other|two)$/)
+      })
+
+      it('applies Arabic zero and dual plural categories and Hebrew dual category', () => {
+        expect(new Intl.PluralRules('ar-SA').select(0)).toBe('zero')
+        expect(new Intl.PluralRules('ar-SA').select(2)).toBe('two')
+        expect(new Intl.PluralRules('he').select(2)).toBe('two')
+      })
     })
 
     it('formats prices with de-DE locale (comma decimals)', () => {

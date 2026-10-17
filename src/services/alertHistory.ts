@@ -9,7 +9,8 @@
  */
 import type { Alert, AlertHistoryEntry, EscalationStep } from '../types'
 import { AlertHistoryArraySchema } from '../api/schemas'
-import { readRaw, writeJson, STORAGE_KEYS } from '../utils/storage'
+import { readRaw, STORAGE_KEYS } from '../utils/storage'
+import { persistDurable } from '../utils/durableWrites'
 import { SERIES_IDS, timeSeries } from '../storage/timeseries'
 
 /** Cap on the fired-alert history log (#309), oldest entries dropped first. */
@@ -139,6 +140,7 @@ export function buildTriggerHistoryEntry(
   price: number,
   firedAt: number,
   retest?: AlertHistoryEntry['retest'],
+  evidence?: AlertHistoryEntry['evidence'],
 ): AlertHistoryEntry {
   return {
     id: crypto.randomUUID(),
@@ -153,6 +155,7 @@ export function buildTriggerHistoryEntry(
     percentageThreshold: alert.percentageThreshold,
     percentageWindow: alert.percentageWindow,
     percentageDirection: alert.percentageDirection,
+    evidence: evidence ?? null,
     escalation: null,
     retest: retest ?? null,
   }
@@ -164,9 +167,10 @@ export function buildEscalationHistoryEntry(
   step: EscalationStep,
   price: number,
   firedAt: number,
+  evidence?: AlertHistoryEntry['evidence'],
 ): AlertHistoryEntry {
   return {
-    ...buildTriggerHistoryEntry(alert, price, firedAt),
+    ...buildTriggerHistoryEntry(alert, price, firedAt, undefined, evidence),
     id: crypto.randomUUID(),
     escalation: { stepId: step.id, channel: step.channel, delayMinutes: step.delayMinutes },
   }

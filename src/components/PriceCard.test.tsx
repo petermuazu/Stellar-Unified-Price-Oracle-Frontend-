@@ -59,6 +59,28 @@ describe('PriceCard', () => {
     expect(screen.getByText('redstone')).toBeInTheDocument()
   })
 
+  it('renders API-reported unknown and renamed symbols in the pair directory card', () => {
+    render(
+      <PriceCard
+        price={{
+          ...mockPrice,
+          pairMetadata: {
+            baseUnit: 'BTC',
+            quoteUnit: 'USD',
+            priceScale: 8,
+            feedSymbols: {
+              band: { status: 'renamed', canonicalSymbol: 'BTC/USD', observedSymbol: 'BTC' },
+              redstone: { status: 'unknown', canonicalSymbol: null, observedSymbol: 'XBT-USD' },
+            },
+          },
+        }}
+      />,
+      { wrapper },
+    )
+    expect(screen.getByText('Renamed')).toBeInTheDocument()
+    expect(screen.getByText('Unknown')).toBeInTheDocument()
+  })
+
   it('calls onClick when card is clicked', async () => {
     const onClick = vi.fn()
     const user = userEvent.setup()

@@ -48,6 +48,7 @@ export const DEFAULT_BACKTEST_PRESETS: BacktestPreset[] = [
 export const DEFAULT_DATA_PREFERENCES: DataPreferences = {
   refreshInterval: 10000,
   chartTimeRange: '24h',
+  chartHistoryPageSize: 100,
   staleThresholdMinutes: 5,
   sourcePriority: ['chainlink', 'redstone', 'band', 'reflector'],
   onChainDivergenceThresholdPercent: 1,
@@ -91,6 +92,13 @@ export const REFRESH_INTERVAL_OPTIONS = [
   { value: 10000, label: '10 seconds' },
   { value: 30000, label: '30 seconds' },
   { value: 60000, label: '1 minute' },
+  { value: 300000, label: '5 minutes' },
+] as const
+
+export const CHART_HISTORY_PAGE_SIZE_OPTIONS = [
+  { value: 50 as const, label: '50 points per page' },
+  { value: 100 as const, label: '100 points per page' },
+  { value: 250 as const, label: '250 points per page' },
 ] as const
 
 export const CHART_RANGE_OPTIONS = [

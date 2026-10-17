@@ -443,6 +443,13 @@ monitorApiHealth()
 3. **Use WebSocket** — Real-time updates use fewer API calls than polling
 4. **Monitor headers** — Check `X-RateLimit-Remaining` to avoid hitting limits
 
+## Lower-Bandwidth Dashboard Settings
+
+In the frontend's Settings, set **Refresh Interval** to 5 minutes and **Chart
+History Points per Page** to 50 to reduce REST polling and history page sizes.
+History remains paginated, and loading fewer points does not fabricate or
+modify upstream prices; users can request additional pages when needed.
+
 ---
 
 ## Troubleshooting

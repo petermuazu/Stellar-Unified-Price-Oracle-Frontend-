@@ -96,7 +96,17 @@ export function getEffectiveLocale(formatLocale: LocaleCode, currentLanguage: Su
  * List of all supported IANA locale codes for Intl formatting.
  * Can be used to validate user selections or provide autocomplete.
  */
-export const SUPPORTED_LOCALES: LocaleCode[] = ['auto', 'en-US', 'de-DE', 'fr-FR', 'ja-JP', 'es-ES', 'ar-SA', 'pt-BR']
+export const SUPPORTED_LOCALES: LocaleCode[] = [
+  'auto',
+  'en-US',
+  'de-DE',
+  'fr-FR',
+  'ja-JP',
+  'es-ES',
+  'ar-SA',
+  'he',
+  'pt-BR',
+]
 
 /**
  * Checks if a given locale code is supported.

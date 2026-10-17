@@ -1,12 +1,22 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { cleanup, screen, fireEvent } from '@testing-library/react'
+import { cleanup, screen, fireEvent, render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement, ReactNode } from 'react'
 import { PreferencesProvider } from '../preferences/PreferencesContext'
 import { checkAccessibility } from '../test/accessibility'
-import { renderWithProviders } from '../test/render'
 import { PriceChart } from './PriceChart'
 
 afterEach(cleanup)
+
+function renderWithProviders(ui: ReactElement) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <MemoryRouter>
+        <PreferencesProvider>{children}</PreferencesProvider>
+      </MemoryRouter>
+    ),
+  })
+}
 
 const sampleData = [
   { price: 50000, timestamp: Date.now() - 3600000, confidence: 0.99, sources: ['chainlink'] },
@@ -49,6 +59,31 @@ describe('PriceChart', () => {
     expect(screen.getByText('BTC/USD Price History')).toBeInTheDocument()
   })
 
+  it('shows source coverage from reported contributors when enabled', () => {
+    renderWithProviders(<PriceChart data={sampleData} pair="BTC/USD" />)
+    const coverageToggle = screen.getByRole('button', { name: 'Toggle per-source coverage overlay' })
+    expect(coverageToggle).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(coverageToggle)
+
+    expect(coverageToggle).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('chainlink: 100.0%')).toBeInTheDocument()
+    expect(screen.getByText(/share of returned price points/)).toBeInTheDocument()
+  })
+
+  it('reports coverage unavailable when history has no contributor metadata', () => {
+    renderWithProviders(
+      <PriceChart
+        data={[{ price: 50_000, timestamp: Date.now(), confidence: 0.9, sources: [] }]}
+        pair="BTC/USD"
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle per-source coverage overlay' }))
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Per-source coverage is unavailable because the returned history contains no contributing-source data.',
+    )
+  })
+
   it('renders all time range buttons', () => {
     renderWithProviders(<PriceChart data={sampleData} pair="BTC/USD" />)
     for (const label of ['1H', '24H', '7D', '30D', '1Y']) {
@@ -67,6 +102,35 @@ describe('PriceChart', () => {
     renderWithProviders(<PriceChart data={sampleData} pair="BTC/USD" timeRange="7d" onTimeRangeChange={vi.fn()} />)
     expect(screen.getByRole('button', { name: '7D time range' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: '24H time range' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('updates rolling statistics for the selected history range', () => {
+    const now = Date.now()
+    renderWithProviders(
+      <PriceChart
+        data={[
+          { ...sampleData[0], timestamp: now - 2 * 60 * 60 * 1000 },
+          { ...sampleData[1], timestamp: now - 10 * 60 * 1000 },
+        ]}
+        pair="BTC/USD"
+      />,
+    )
+
+    expect(screen.getByRole('group', { name: 'Rolling statistics' })).toHaveTextContent(
+      'Based on 2 loaded observations',
+    )
+    fireEvent.click(screen.getByRole('button', { name: '1H time range' }))
+    expect(screen.getByRole('group', { name: 'Rolling statistics' })).toHaveTextContent(
+      'Based on 1 loaded observations',
+    )
+  })
+
+  it('exposes rolling values in the accessible data table', () => {
+    renderWithProviders(<PriceChart data={sampleData} pair="BTC/USD" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show data table' }))
+
+    expect(screen.getByRole('columnheader', { name: 'Rolling median' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Range low–high' })).toBeInTheDocument()
   })
 
   it('renders full-screen toggle button', () => {

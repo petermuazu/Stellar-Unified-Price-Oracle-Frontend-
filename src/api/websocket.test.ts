@@ -86,7 +86,14 @@ describe('WebSocketClient', () => {
     client.onMessage(h1)
     client.onMessage(h2)
     client.connect()
-    const msg = { type: 'price_update', assetPair: 'BTC/USD', price: 50000, timestamp: Date.now(), confidence: 0.99, sources: ['chainlink'] }
+    const msg = {
+      type: 'price_update',
+      assetPair: 'BTC/USD',
+      price: 50000,
+      timestamp: Date.now(),
+      confidence: 0.99,
+      sources: ['chainlink'],
+    }
     ws.simulateMessage(msg)
     expect(h1).toHaveBeenCalledWith(msg)
     expect(h2).toHaveBeenCalledWith(msg)
@@ -116,9 +123,7 @@ describe('WebSocketClient', () => {
     client.connect()
     ws.readyState = FakeWebSocket.OPEN
     client.subscribe('BTC/USD')
-    expect(ws.sent).toEqual([
-      JSON.stringify({ action: 'subscribe', assetPairs: ['BTC/USD'] }),
-    ])
+    expect(ws.sent).toEqual([JSON.stringify({ action: 'subscribe', assetPairs: ['BTC/USD'] })])
   })
 
   it('subscribe with array sends subscribe message', () => {
@@ -126,9 +131,7 @@ describe('WebSocketClient', () => {
     client.connect()
     ws.readyState = FakeWebSocket.OPEN
     client.subscribe(['BTC/USD', 'ETH/USD'])
-    expect(ws.sent).toEqual([
-      JSON.stringify({ action: 'subscribe', assetPairs: ['BTC/USD', 'ETH/USD'] }),
-    ])
+    expect(ws.sent).toEqual([JSON.stringify({ action: 'subscribe', assetPairs: ['BTC/USD', 'ETH/USD'] })])
   })
 
   it('unsubscribe sends unsubscribe message', () => {
@@ -149,7 +152,14 @@ describe('WebSocketClient', () => {
     const dispose = client.onMessage(handler)
     dispose()
     client.connect()
-    ws.simulateMessage({ type: 'price_update', assetPair: 'BTC/USD', price: 50000, timestamp: Date.now(), confidence: 0.99, sources: [] })
+    ws.simulateMessage({
+      type: 'price_update',
+      assetPair: 'BTC/USD',
+      price: 50000,
+      timestamp: Date.now(),
+      confidence: 0.99,
+      sources: [],
+    })
     expect(handler).not.toHaveBeenCalled()
   })
 
@@ -443,6 +453,32 @@ describe('WebSocketClient', () => {
     vi.useRealTimers()
   })
 
+  it('classifies disconnects by browser network state, browser transport errors, and server close frames', () => {
+    const client = new WebSocketClient()
+    client.connect()
+    ws.simulateClose(1011, 'server unavailable')
+    expect(client.diagnostics.lastReconnectCause).toMatchObject({
+      type: 'server',
+      closeCode: 1011,
+      closeReason: 'server unavailable',
+    })
+
+    ws.simulateOpen()
+    ws.simulateClose(1006, 'abnormal closure')
+    expect(client.diagnostics.lastReconnectCause?.type).toBe('browser')
+
+    vi.stubGlobal('navigator', { onLine: false })
+    ws.simulateOpen()
+    ws.simulateClose(1006)
+    expect(client.diagnostics.lastReconnectCause?.type).toBe('network')
+    expect(client.diagnostics.reconnectCauseCounts).toEqual({
+      network: 1,
+      browser: 1,
+      server: 1,
+      unknown: 0,
+    })
+  })
+
   it('re-subscribes to all tracked pairs after multiple reconnect cycles', () => {
     vi.useFakeTimers()
     const client = new WebSocketClient()
@@ -470,7 +506,14 @@ describe('WebSocketClient', () => {
     const handler = vi.fn()
     client.onMessage(handler)
     client.connect()
-    const base = { type: 'price_update', assetPair: 'BTC/USD', price: 1, timestamp: Date.now(), confidence: 0.9, sources: ['a'] }
+    const base = {
+      type: 'price_update',
+      assetPair: 'BTC/USD',
+      price: 1,
+      timestamp: Date.now(),
+      confidence: 0.9,
+      sources: ['a'],
+    }
     ws.simulateMessage({ ...base, seq: 5 })
     ws.simulateMessage({ ...base, seq: 3 })
     ws.simulateMessage({ ...base, seq: 5 })
@@ -484,7 +527,14 @@ describe('WebSocketClient', () => {
     const handler = vi.fn()
     client.onMessage(handler)
     client.connect()
-    const base = { type: 'price_update', assetPair: 'BTC/USD', price: 1, timestamp: Date.now(), confidence: 0.9, sources: ['a'] }
+    const base = {
+      type: 'price_update',
+      assetPair: 'BTC/USD',
+      price: 1,
+      timestamp: Date.now(),
+      confidence: 0.9,
+      sources: ['a'],
+    }
     ws.simulateMessage({ ...base, seq: 10 })
 
     ws.simulateClose()
@@ -569,6 +619,20 @@ describe('WebSocketClient', () => {
     ws.simulateOpen()
     ws.simulateMessage({ type: 'welcome', protocolVersion: WS_PROTOCOL_VERSION + 1 })
     expect(client.diagnostics.protocolVersion).toBe(WS_PROTOCOL_VERSION + 1)
+    expect(client.diagnostics.protocolUpgradeRequired).toBe(true)
+  })
+
+  it('notifies diagnostic consumers when the welcome handshake reveals a newer protocol', () => {
+    const client = new WebSocketClient()
+    const onStatus = vi.fn()
+    client.onStatusChange(onStatus)
+    client.connect()
+    ws.simulateOpen()
+    onStatus.mockClear()
+
+    ws.simulateMessage({ type: 'welcome', protocolVersion: WS_PROTOCOL_VERSION + 1 })
+
+    expect(onStatus).toHaveBeenCalledWith('connected')
     expect(client.diagnostics.protocolUpgradeRequired).toBe(true)
   })
 

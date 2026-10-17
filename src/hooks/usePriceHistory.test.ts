@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor } from '@testing-library/react'
 import * as rest from '../api/rest'
 import { usePriceHistory } from './usePriceHistory'
@@ -15,6 +15,8 @@ beforeEach(async () => {
   // cached entry instead of exercising a fresh fetchPriceHistory call.
   await idbCache.clear('history')
 })
+
+afterEach(() => vi.unstubAllGlobals())
 
 describe('usePriceHistory', () => {
   it('does not fetch when pair is null', () => {
@@ -33,6 +35,21 @@ describe('usePriceHistory', () => {
     await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 })
     expect(result.current.history).toEqual(history)
     expect(result.current.hasMore).toBe(true)
+  })
+
+  it('flags near-quota browser storage before persisting fetched history', async () => {
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      storage: { estimate: vi.fn().mockResolvedValue({ usage: 90, quota: 100 }) },
+    })
+    vi.mocked(rest.fetchPriceHistory).mockResolvedValue({
+      pair: 'BTC/USD',
+      history: [{ price: 50000, timestamp: 1000, confidence: 0.99, sources: ['chainlink'] }],
+    })
+
+    const { result } = renderHook(() => usePriceHistory('BTC/USD', { refreshInterval: 60000 }))
+    await waitFor(() => expect(result.current.storageNearQuota).toBe(true), { timeout: 5000 })
+    expect(result.current.history).toHaveLength(1)
   })
 
   it('serves a repeat mount for the same pair from the IndexedDB cache (#321)', async () => {

@@ -16,7 +16,7 @@ exports[`PriceDetailSkeleton snapshots > default 1`] = `
       class="skeleton-shimmer h-7 w-40 rounded"
     />
     <div
-      class="skeleton-shimmer h-5 w-10 rounded-full ml-2"
+      class="skeleton-shimmer h-5 w-10 rounded-full ms-2"
     />
   </div>
   <div

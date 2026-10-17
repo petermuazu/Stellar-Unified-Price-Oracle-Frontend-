@@ -73,8 +73,15 @@ import type {
 import { validateEscalationPolicy } from '../types/alerts'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { buildConditionGroupFromFormData } from '../utils/alertEvaluator'
+import { localDateToTimestamp, timestampToLocalDate } from '../utils/alertLifecycle'
 import { simulateAlert, type SimulatedPoint } from '../utils/alertSimulation'
+import { loadBotSecrets } from '../services/botNotifications'
 import { loadNotifConfig, getEnabledChannels } from '../services/notificationConfig'
+import {
+  areChannelsReady,
+  checkNotificationReadiness,
+  type ChannelReadinessStatus,
+} from '../services/notificationReadiness'
 import type { AlertPreset } from '../data/alertPresets'
 import { presetStorage, type CustomAlertPreset } from '../services/presetStorage'
 import { AlertSimulationChart } from './AlertSimulationChart'
@@ -98,6 +105,34 @@ interface AlertModalProps {
 }
 
 type ValidationErrors = Partial<Record<keyof AlertFormData, string>>
+
+type ReadinessTranslationKey =
+  | 'alertModal.channels.readiness.ready'
+  | 'alertModal.channels.readiness.disabled'
+  | 'alertModal.channels.readiness.missingConfiguration'
+  | 'alertModal.channels.readiness.missingSecret'
+  | 'alertModal.channels.readiness.permissionRequired'
+  | 'alertModal.channels.readiness.permissionDenied'
+  | 'alertModal.channels.readiness.unsupported'
+
+const READINESS_STATUS_KEYS: Record<ChannelReadinessStatus, ReadinessTranslationKey> = {
+  ready: 'alertModal.channels.readiness.ready',
+  disabled: 'alertModal.channels.readiness.disabled',
+  missingConfiguration: 'alertModal.channels.readiness.missingConfiguration',
+  missingSecret: 'alertModal.channels.readiness.missingSecret',
+  permissionRequired: 'alertModal.channels.readiness.permissionRequired',
+  permissionDenied: 'alertModal.channels.readiness.permissionDenied',
+  unsupported: 'alertModal.channels.readiness.unsupported',
+}
+
+const CHANNEL_NAME_KEYS = {
+  inApp: 'alertModal.escalation.channel_inApp',
+  email: 'alertModal.escalation.channel_email',
+  webPush: 'alertModal.escalation.channel_webPush',
+  webhook: 'alertModal.escalation.channel_webhook',
+  telegram: 'alertModal.escalation.channel_telegram',
+  discord: 'alertModal.escalation.channel_discord',
+} as const
 
 /**
  * #492 – Per-alert channel routing picker.
@@ -221,6 +256,12 @@ export function AlertModal({
     if (!form.assetPair.trim()) {
       errors.assetPair = t('alertModal.validation.assetPairRequired')
     }
+    if (form.expiryDate && localDateToTimestamp(form.expiryDate, true) === null) {
+      errors.expiryDate = t('alertModal.validation.invalidDate')
+    }
+    if (form.reviewDate && localDateToTimestamp(form.reviewDate) === null) {
+      errors.reviewDate = t('alertModal.validation.invalidDate')
+    }
 
     if (form.percentageMode) {
       const pct = form.percentageThreshold ? Number.parseFloat(form.percentageThreshold) : null
@@ -262,6 +303,7 @@ export function AlertModal({
     upperThreshold: '',
     lowerThreshold: '',
     triggerOnce: false,
+    notifyOnRecovery: false,
     percentageMode: false,
     percentageThreshold: '',
     percentageWindow: '1hr',
@@ -276,15 +318,28 @@ export function AlertModal({
     channels: [],
     // #491 – retest mode off by default.
     retestMode: false,
+    expiryDate: '',
+    reviewDate: '',
   })
 
   const [form, setForm] = useState<AlertFormData>(emptyForm)
   const [errors, setErrors] = useState<ValidationErrors>({})
+  const [channelReadiness, setChannelReadiness] = useState(() =>
+    checkNotificationReadiness(loadNotifConfig(), loadBotSecrets(), []),
+  )
   // #490 – cached result of the "Test alert" simulation for the current form.
   const [simResult, setSimResult] = useState<SimulatedPoint[] | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   const previousActiveElement = useRef<HTMLElement | null>(null)
   const { containerRef, handleKeyDown: trapKeyDown } = useFocusTrap()
+
+  const refreshChannelReadiness = useCallback(() => {
+    const report = checkNotificationReadiness(loadNotifConfig(), loadBotSecrets(), form.channels)
+    setChannelReadiness(report)
+    if (areChannelsReady(report)) {
+      setErrors((previous) => ({ ...previous, channels: undefined }))
+    }
+  }, [form.channels])
 
   useEffect(() => {
     if (isOpen) {
@@ -295,6 +350,7 @@ export function AlertModal({
           upperThreshold: alert.upperThreshold !== null ? String(alert.upperThreshold) : '',
           lowerThreshold: alert.lowerThreshold !== null ? String(alert.lowerThreshold) : '',
           triggerOnce: alert.triggerOnce,
+          notifyOnRecovery: alert.notifyOnRecovery ?? false,
           percentageMode: alert.percentageMode,
           percentageThreshold: alert.percentageThreshold !== null ? String(alert.percentageThreshold) : '',
           percentageWindow: alert.percentageWindow ?? '1hr',
@@ -314,6 +370,8 @@ export function AlertModal({
           channels: alert.channels ?? [],
           // #491
           retestMode: alert.retestMode,
+          expiryDate: timestampToLocalDate(alert.expiresAt),
+          reviewDate: timestampToLocalDate(alert.reviewAt),
         })
       } else {
         // New alert: prefill the asset pair from the card the user clicked
@@ -331,6 +389,17 @@ export function AlertModal({
       previousActiveElement.current?.focus()
     }
   }, [isOpen, alert, defaultAssetPair])
+
+  useEffect(() => {
+    if (!isOpen) return
+    refreshChannelReadiness()
+    window.addEventListener('storage', refreshChannelReadiness)
+    window.addEventListener('focus', refreshChannelReadiness)
+    return () => {
+      window.removeEventListener('storage', refreshChannelReadiness)
+      window.removeEventListener('focus', refreshChannelReadiness)
+    }
+  }, [isOpen, refreshChannelReadiness])
 
   // Close on Escape from anywhere while open — the dialog's own onKeyDown only
   // fires once focus has landed inside (via requestAnimationFrame), so a document
@@ -364,6 +433,12 @@ export function AlertModal({
       // EscalationPolicyBuilder already renders the specific errors inline.
       const escalationInvalid = form.escalationEnabled && validateEscalationPolicy(form.escalationSteps).length > 0
       if (Object.keys(validationErrors).length === 0 && !escalationInvalid) {
+        const currentReadiness = checkNotificationReadiness(loadNotifConfig(), loadBotSecrets(), form.channels)
+        setChannelReadiness(currentReadiness)
+        if (!areChannelsReady(currentReadiness)) {
+          setErrors({ ...validationErrors, channels: t('alertModal.channels.readiness.blocked') })
+          return
+        }
         onSave(form)
       }
     },
@@ -660,10 +735,10 @@ export function AlertModal({
                     min="0.1"
                     value={form.percentageThreshold}
                     onChange={(e) => setAndValidate('percentageThreshold', e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 pr-10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 pe-10 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     placeholder="5"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                  <span className="absolute end-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
                 </div>
                 {fieldError('percentageThreshold') && (
                   <p className="mt-1 text-sm text-red-400" role="alert">
@@ -860,6 +935,19 @@ export function AlertModal({
                 : t('alertModal.fields.alertTypePersistentDesc')}
             </p>
 
+            <div className="mt-3 border-t border-gray-700 pt-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.notifyOnRecovery}
+                  onChange={(e) => setAndValidate('notifyOnRecovery', e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500/50"
+                />
+                <span className="text-sm font-medium text-gray-300">{t('alertModal.recovery.title')}</span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1.5">{t('alertModal.recovery.description')}</p>
+            </div>
+
             {/* Cooldown between re-fires (#310) */}
             {!form.triggerOnce && (
               <div className="mt-3 pt-3 border-t border-gray-700">
@@ -882,6 +970,51 @@ export function AlertModal({
               </div>
             )}
           </div>
+
+          <fieldset className="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl">
+            <legend className="px-1 text-sm font-medium text-gray-300">{t('alertModal.lifecycle.title')}</legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="alert-expiry-date" className="block text-xs font-medium text-gray-400 mb-1.5">
+                  {t('alertModal.lifecycle.expiryLabel')}
+                </label>
+                <input
+                  id="alert-expiry-date"
+                  type="date"
+                  value={form.expiryDate}
+                  onChange={(e) => setAndValidate('expiryDate', e.target.value)}
+                  aria-invalid={Boolean(errors.expiryDate)}
+                  aria-describedby={errors.expiryDate ? 'alert-expiry-error' : undefined}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                />
+                {errors.expiryDate && (
+                  <p id="alert-expiry-error" role="alert" className="mt-1 text-xs text-red-400">
+                    {errors.expiryDate}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="alert-review-date" className="block text-xs font-medium text-gray-400 mb-1.5">
+                  {t('alertModal.lifecycle.reviewLabel')}
+                </label>
+                <input
+                  id="alert-review-date"
+                  type="date"
+                  value={form.reviewDate}
+                  onChange={(e) => setAndValidate('reviewDate', e.target.value)}
+                  aria-invalid={Boolean(errors.reviewDate)}
+                  aria-describedby={errors.reviewDate ? 'alert-review-error' : undefined}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                />
+                {errors.reviewDate && (
+                  <p id="alert-review-error" role="alert" className="mt-1 text-xs text-red-400">
+                    {errors.reviewDate}
+                  </p>
+                )}
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">{t('alertModal.lifecycle.description')}</p>
+          </fieldset>
 
           {/* Escalation policy (#487) */}
           <EscalationPolicyBuilder
@@ -911,6 +1044,29 @@ export function AlertModal({
             value={form.channels}
             onChange={(channels) => setForm((prev) => ({ ...prev, channels }))}
           />
+          <section
+            aria-labelledby="alert-channel-readiness-title"
+            aria-live="polite"
+            className="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+          >
+            <h3 id="alert-channel-readiness-title" className="text-sm font-medium text-gray-300 mb-2">
+              {t('alertModal.channels.readiness.title')}
+            </h3>
+            <ul className="space-y-1 text-xs">
+              {channelReadiness.map(({ channel, status }) => (
+                <li key={channel} className={`flex gap-1 ${status === 'ready' ? 'text-green-300' : 'text-amber-300'}`}>
+                  <span>{t(CHANNEL_NAME_KEYS[channel])}:</span>
+                  <span>{t(READINESS_STATUS_KEYS[status])}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-gray-500">{t('alertModal.channels.readiness.remoteNote')}</p>
+            {errors.channels && (
+              <p role="alert" className="mt-2 text-xs text-red-400">
+                {errors.channels}
+              </p>
+            )}
+          </section>
 
           {/* Alert simulation (#490) */}
           <AlertSimulationSection
@@ -953,7 +1109,7 @@ export function AlertModal({
               </button>
               <button
                 type="submit"
-                disabled={rateLimited}
+                disabled={rateLimited || !areChannelsReady(channelReadiness)}
                 className="px-4 py-2.5 text-sm font-medium text-white bg-cyan-600 rounded-xl hover:bg-cyan-500 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={rateLimited ? `Too many alerts — try again in ${cooldownSec}s` : undefined}
               >

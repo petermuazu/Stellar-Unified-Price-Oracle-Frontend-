@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   toCsv,
   priceDataToCsvRows,
+  priceDataToJsonRows,
+  priceDataToXlsx,
   historyToCsvRows,
   downloadFile,
   exportFilename,
@@ -29,6 +31,30 @@ describe('priceDataToCsvRows', () => {
     expect(rows[0].assetPair).toBe('BTC/USD')
     expect(rows[0].timestamp).toBe(new Date(0).toISOString())
     expect(rows[0].sources).toBe('chainlink;band')
+    expect(headers).toContain('sourceTickProvenanceUrl')
+    expect(rows[0].sourceTickProvenanceUrl).toBe('')
+  })
+
+  it('preserves an API-provided provenance link in CSV and JSON exports', () => {
+    const sourceTickProvenanceUrl = 'https://oracle.example/ticks/abc123'
+    const prices = [
+      {
+        assetPair: 'BTC/USD',
+        price: 50000,
+        timestamp: 0,
+        confidence: 0.99,
+        sources: ['chainlink'],
+        sourceTickProvenanceUrl,
+      },
+    ]
+
+    expect(priceDataToCsvRows(prices).rows[0].sourceTickProvenanceUrl).toBe(sourceTickProvenanceUrl)
+    expect(priceDataToJsonRows(prices)[0].sourceTickProvenanceUrl).toBe(sourceTickProvenanceUrl)
+    expect(priceDataToJsonRows(prices, ['sourceTickProvenanceUrl'])).toEqual([{ sourceTickProvenanceUrl }])
+    expect(priceDataToCsvRows(prices, ['sourceTickProvenanceUrl']).headers).toEqual(['sourceTickProvenanceUrl'])
+    const csvRows = priceDataToCsvRows(prices)
+    expect(toCsv(csvRows.rows, csvRows.headers)).toContain(sourceTickProvenanceUrl)
+    expect(new TextDecoder().decode(priceDataToXlsx(prices))).toContain(sourceTickProvenanceUrl)
   })
 })
 

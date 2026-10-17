@@ -8,6 +8,7 @@
 import { memo, useCallback, useRef, useState } from 'react'
 import { useWatchlists } from '../hooks/useWatchlists'
 import type { WatchlistEntry } from '../hooks/useWatchlists'
+import { useIsRtl } from '../hooks/useIsRtl'
 
 // ---------- Props ----------
 
@@ -29,13 +30,13 @@ const PairChip = memo(function PairChip({ pair, watchlistId, onRemove }: PairChi
   }, [onRemove, watchlistId, pair])
 
   return (
-    <span className='inline-flex items-center gap-1 rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-200'>
+    <span className="inline-flex items-center gap-1 rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-200">
       {pair}
       <button
-        type='button'
+        type="button"
         aria-label={`Remove ${pair} from watchlist`}
         onClick={handleRemove}
-        className='ml-0.5 rounded text-slate-400 hover:text-red-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400'
+        className="ms-0.5 rounded text-slate-400 hover:text-red-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
       >
         ×
       </button>
@@ -120,38 +121,31 @@ const WatchlistItem = memo(function WatchlistItem({
   const handleMoveDown = useCallback(() => onMoveDown(entry.id), [onMoveDown, entry.id])
 
   return (
-    <li
-      className='rounded-lg border border-slate-700 bg-slate-800'
-      aria-label={`Watchlist: ${entry.name}`}
-    >
+    <li className="rounded-lg border border-slate-700 bg-slate-800" aria-label={`Watchlist: ${entry.name}`}>
       {/* Header row */}
-      <div className='flex items-center gap-2 px-3 py-2'>
+      <div className="flex items-center gap-2 px-3 py-2">
         {/* Drag handle (visual only) */}
-        <span
-          aria-hidden='true'
-          className='cursor-grab select-none text-slate-500'
-          title='Drag to reorder'
-        >
+        <span aria-hidden="true" className="cursor-grab select-none text-slate-500" title="Drag to reorder">
           ⠿
         </span>
 
         {/* Up / Down reorder buttons */}
-        <div className='flex flex-col gap-0.5'>
+        <div className="flex flex-col gap-0.5">
           <button
-            type='button'
+            type="button"
             aria-label={`Move "${entry.name}" up`}
             disabled={index === 0}
             onClick={handleMoveUp}
-            className='rounded px-1 text-xs text-slate-400 hover:text-slate-100 disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+            className="rounded px-1 text-xs text-slate-400 hover:text-slate-100 disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
           >
             ▲
           </button>
           <button
-            type='button'
+            type="button"
             aria-label={`Move "${entry.name}" down`}
             disabled={index === totalCount - 1}
             onClick={handleMoveDown}
-            className='rounded px-1 text-xs text-slate-400 hover:text-slate-100 disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+            className="rounded px-1 text-xs text-slate-400 hover:text-slate-100 disabled:opacity-30 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
           >
             ▼
           </button>
@@ -161,20 +155,20 @@ const WatchlistItem = memo(function WatchlistItem({
         {editing ? (
           <input
             ref={nameInputRef}
-            type='text'
+            type="text"
             value={editName}
-            aria-label='Watchlist name'
+            aria-label="Watchlist name"
             onChange={(e) => setEditName(e.target.value)}
             onBlur={handleEditCommit}
             onKeyDown={handleEditKeyDown}
-            className='flex-1 rounded bg-slate-700 px-2 py-0.5 text-sm text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+            className="flex-1 rounded bg-slate-700 px-2 py-0.5 text-sm text-white focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
           />
         ) : (
           <button
-            type='button'
+            type="button"
             aria-label={`Rename watchlist "${entry.name}"`}
             onClick={handleEditStart}
-            className='flex-1 truncate text-left text-sm font-medium text-slate-100 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+            className="flex-1 truncate text-start text-sm font-medium text-slate-100 hover:underline focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
           >
             {entry.name}
           </button>
@@ -183,28 +177,28 @@ const WatchlistItem = memo(function WatchlistItem({
         {/* Pair count badge */}
         <span
           aria-label={`${entry.pairs.length} pairs`}
-          className='shrink-0 rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-400'
+          className="shrink-0 rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-400"
         >
           {entry.pairs.length} pair{entry.pairs.length !== 1 ? 's' : ''}
         </span>
 
         {/* Expand / collapse */}
         <button
-          type='button'
+          type="button"
           aria-label={expanded ? `Collapse "${entry.name}"` : `Expand "${entry.name}"`}
           aria-expanded={expanded}
           onClick={handleToggle}
-          className='shrink-0 rounded px-1 text-slate-400 hover:text-slate-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+          className="shrink-0 rounded px-1 text-slate-400 hover:text-slate-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
         >
           {expanded ? '▲' : '▼'}
         </button>
 
         {/* Delete */}
         <button
-          type='button'
+          type="button"
           aria-label={`Delete watchlist "${entry.name}"`}
           onClick={handleDelete}
-          className='shrink-0 rounded px-1 text-slate-400 hover:text-red-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400'
+          className="shrink-0 rounded px-1 text-slate-400 hover:text-red-400 focus:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
         >
           ✕
         </button>
@@ -212,43 +206,32 @@ const WatchlistItem = memo(function WatchlistItem({
 
       {/* Expanded pair management */}
       {expanded && (
-        <div className='border-t border-slate-700 px-3 py-2 space-y-2'>
+        <div className="border-t border-slate-700 px-3 py-2 space-y-2">
           {/* Existing pairs */}
           {entry.pairs.length > 0 ? (
-            <div
-              className='flex flex-wrap gap-1'
-              aria-label={`Pairs in "${entry.name}"`}
-            >
+            <div className="flex flex-wrap gap-1" aria-label={`Pairs in "${entry.name}"`}>
               {entry.pairs.map((pair) => (
-                <PairChip
-                  key={pair}
-                  pair={pair}
-                  watchlistId={entry.id}
-                  onRemove={onRemovePair}
-                />
+                <PairChip key={pair} pair={pair} watchlistId={entry.id} onRemove={onRemovePair} />
               ))}
             </div>
           ) : (
-            <p className='text-xs text-slate-500'>No pairs added yet.</p>
+            <p className="text-xs text-slate-500">No pairs added yet.</p>
           )}
 
           {/* Add pair */}
           {uncommittedPairs.length > 0 && (
-            <div className='flex items-center gap-2'>
-              <label
-                htmlFor={`add-pair-${entry.id}`}
-                className='text-xs text-slate-400'
-              >
+            <div className="flex items-center gap-2">
+              <label htmlFor={`add-pair-${entry.id}`} className="text-xs text-slate-400">
                 Add pair:
               </label>
               <select
                 id={`add-pair-${entry.id}`}
                 aria-label={`Add pair to "${entry.name}"`}
-                defaultValue=''
+                defaultValue=""
                 onChange={handleAddPairChange}
-                className='rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+                className="rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
               >
-                <option value='' disabled>
+                <option value="" disabled>
                   Select a pair…
                 </option>
                 {uncommittedPairs.map((p) => (
@@ -267,9 +250,8 @@ const WatchlistItem = memo(function WatchlistItem({
 
 // ---------- Main Component ----------
 
-export const WatchlistManager = memo(function WatchlistManager({
-  availablePairs,
-}: WatchlistManagerProps) {
+export const WatchlistManager = memo(function WatchlistManager({ availablePairs }: WatchlistManagerProps) {
+  const isRtl = useIsRtl()
   const {
     watchlists,
     watchlistModeEnabled,
@@ -364,20 +346,20 @@ export const WatchlistManager = memo(function WatchlistManager({
 
   return (
     <section
-      aria-label='Watchlist Manager'
-      className='flex flex-col gap-4 rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-200'
+      aria-label="Watchlist Manager"
+      className="flex flex-col gap-4 rounded-xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-200"
     >
       {/* Title + Watchlist Mode toggle */}
-      <div className='flex items-center justify-between'>
-        <h2 className='text-base font-semibold text-slate-100'>Watchlists</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-base font-semibold text-slate-100">Watchlists</h2>
 
-        <label className='flex cursor-pointer items-center gap-2 select-none'>
-          <span className='text-xs text-slate-400'>Watchlist Mode</span>
+        <label className="flex cursor-pointer items-center gap-2 select-none">
+          <span className="text-xs text-slate-400">Watchlist Mode</span>
           <button
-            type='button'
-            role='switch'
+            type="button"
+            role="switch"
             aria-checked={watchlistModeEnabled}
-            aria-label='Toggle Watchlist Mode'
+            aria-label="Toggle Watchlist Mode"
             onClick={toggleWatchlistMode}
             className={[
               'relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400',
@@ -387,7 +369,13 @@ export const WatchlistManager = memo(function WatchlistManager({
             <span
               className={[
                 'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-                watchlistModeEnabled ? 'translate-x-4' : 'translate-x-1',
+                watchlistModeEnabled
+                  ? isRtl
+                    ? '-translate-x-4'
+                    : 'translate-x-4'
+                  : isRtl
+                    ? '-translate-x-1'
+                    : 'translate-x-1',
               ].join(' ')}
             />
           </button>
@@ -395,22 +383,22 @@ export const WatchlistManager = memo(function WatchlistManager({
       </div>
 
       {/* Create new watchlist */}
-      <div className='flex gap-2'>
+      <div className="flex gap-2">
         <input
-          type='text'
+          type="text"
           value={newName}
-          aria-label='New watchlist name'
-          placeholder='New watchlist name…'
+          aria-label="New watchlist name"
+          placeholder="New watchlist name…"
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={handleNewNameKeyDown}
-          className='flex-1 rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 border border-slate-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+          className="flex-1 rounded bg-slate-800 px-3 py-1.5 text-sm text-slate-100 placeholder-slate-500 border border-slate-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
         />
         <button
-          type='button'
-          aria-label='Create watchlist'
+          type="button"
+          aria-label="Create watchlist"
           onClick={handleCreate}
           disabled={!newName.trim()}
-          className='rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+          className="rounded bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
         >
           Create
         </button>
@@ -418,11 +406,9 @@ export const WatchlistManager = memo(function WatchlistManager({
 
       {/* Watchlist list */}
       {watchlists.length === 0 ? (
-        <p className='text-center text-xs text-slate-500 py-4'>
-          No watchlists yet. Create one above.
-        </p>
+        <p className="text-center text-xs text-slate-500 py-4">No watchlists yet. Create one above.</p>
       ) : (
-        <ul className='flex flex-col gap-2' aria-label='Your watchlists'>
+        <ul className="flex flex-col gap-2" aria-label="Your watchlists">
           {watchlists.map((entry, i) => (
             <WatchlistItem
               key={entry.id}
@@ -442,33 +428,33 @@ export const WatchlistManager = memo(function WatchlistManager({
       )}
 
       {/* Import / Export */}
-      <div className='flex gap-2 border-t border-slate-700 pt-3'>
+      <div className="flex gap-2 border-t border-slate-700 pt-3">
         {/* Hidden file input for CSV import */}
         <input
           ref={importInputRef}
-          type='file'
-          accept='.csv,text/csv'
-          aria-label='Import watchlists CSV file'
+          type="file"
+          accept=".csv,text/csv"
+          aria-label="Import watchlists CSV file"
           tabIndex={-1}
-          className='sr-only'
+          className="sr-only"
           onChange={handleImportFile}
         />
 
         <button
-          type='button'
-          aria-label='Import watchlists from CSV'
+          type="button"
+          aria-label="Import watchlists from CSV"
           onClick={handleImportClick}
-          className='rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+          className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
         >
           ↑ Import CSV
         </button>
 
         <button
-          type='button'
-          aria-label='Export watchlists to CSV'
+          type="button"
+          aria-label="Export watchlists to CSV"
           onClick={handleExport}
           disabled={watchlists.length === 0}
-          className='rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400'
+          className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700 disabled:opacity-40 focus:outline-none focus-visible:ring-1 focus-visible:ring-sky-400"
         >
           ↓ Export CSV
         </button>

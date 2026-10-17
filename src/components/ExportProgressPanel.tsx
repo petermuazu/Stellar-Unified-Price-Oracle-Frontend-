@@ -44,7 +44,7 @@ export function ExportProgressPanel({ tasks, onCancel, onDismiss }: ExportProgre
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-40 w-80 max-w-[calc(100vw-2rem)] space-y-2"
+      className="fixed bottom-4 end-4 z-40 w-80 max-w-[calc(100vw-2rem)] space-y-2"
       role="region"
       aria-label="Export progress"
     >
@@ -60,18 +60,20 @@ export function ExportProgressPanel({ tasks, onCancel, onDismiss }: ExportProgre
               <span className="font-medium truncate">{task.label}</span>
               <span
                 className={
-                  task.status === 'error'
-                    ? 'text-red-400'
-                    : task.status === 'done'
-                      ? 'text-green-400'
-                      : 'text-gray-500'
+                  task.status === 'error' ? 'text-red-400' : task.status === 'done' ? 'text-green-400' : 'text-gray-500'
                 }
               >
                 {STATUS_LABEL[task.status]}
               </span>
             </div>
 
-            <div className="h-1.5 rounded-full bg-gray-800 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+            <div
+              className="h-1.5 rounded-full bg-gray-800 overflow-hidden"
+              role="progressbar"
+              aria-valuenow={pct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
               <div
                 className={`h-full rounded-full transition-all ${task.status === 'error' ? 'bg-red-500' : task.status === 'cancelled' ? 'bg-gray-600' : 'bg-cyan-500'}`}
                 style={{ width: `${pct}%` }}
@@ -80,8 +82,7 @@ export function ExportProgressPanel({ tasks, onCancel, onDismiss }: ExportProgre
 
             <div className="flex items-center justify-between mt-1.5 text-gray-500">
               <span>
-                {task.processed}/{task.total} · {pct}%
-                {remaining !== null && ` · ~${formatMs(remaining)} left`}
+                {task.processed}/{task.total} · {pct}%{remaining !== null && ` · ~${formatMs(remaining)} start`}
               </span>
               {task.status === 'processing' ? (
                 <button

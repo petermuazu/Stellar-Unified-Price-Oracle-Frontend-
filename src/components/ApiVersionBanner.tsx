@@ -10,9 +10,10 @@
  * - Compatible / unknown: renders nothing.
  */
 
-import { memo, useState, useCallback } from 'react'
+import { memo, useState, useCallback, useEffect, useRef } from 'react'
 import { useApiVersion } from '../hooks/useApiVersion'
 import type { VersionCompatibility } from '../api/version'
+import { addInboxItem } from '../services/inbox'
 
 const DISMISS_STORAGE_KEY = 'api_version_warning_dismissed'
 
@@ -51,6 +52,25 @@ const iconByCompatibility: Record<VersionCompatibility, string> = {
 export const ApiVersionBanner = memo(function ApiVersionBanner() {
   const info = useApiVersion()
   const [dismissed, setDismissed] = useState<string | null>(getDismissedVersion)
+  const lastInboxStatusRef = useRef('')
+
+  useEffect(() => {
+    if (!info || info.compatibility === 'compatible' || info.compatibility === 'unknown') {
+      lastInboxStatusRef.current = ''
+      return
+    }
+
+    const statusKey = `${info.serverVersion}:${info.compatibility}:${info.message}`
+    if (lastInboxStatusRef.current === statusKey) return
+    lastInboxStatusRef.current = statusKey
+    addInboxItem({
+      category: 'system',
+      title: info.compatibility === 'incompatible' ? 'API version incompatible' : 'API version mismatch',
+      message: info.message ?? 'The client and API versions may be incompatible.',
+      href: '/api-docs',
+      source: 'API status',
+    })
+  }, [info])
 
   const handleDismiss = useCallback(() => {
     if (info?.serverVersion) {

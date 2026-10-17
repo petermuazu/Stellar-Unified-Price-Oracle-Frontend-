@@ -114,6 +114,34 @@ const ja = {
       '信頼度は、オラクルソース間での価格の一貫性を反映しています。100%はすべてのソースが完全に一致することを意味します。',
   },
 
+  metricHelp: {
+    docsTitle: '価格指標について',
+    helpFor: 'ヘルプ: {{topic}}',
+    readDocs: '指標ガイドを読む',
+    topics: {
+      confidence: {
+        title: '信頼度',
+        description:
+          '利用可能なオラクルソース間の一致度を0から1で示します。0.95は95%の信頼度を表し、価格が正しい確率ではありません。',
+      },
+      divergence: {
+        title: '乖離',
+        description:
+          'オフチェーン集計値と最新のオンチェーンオラクル値との差をパーセントで示します。差が大きい場合、公開の遅れやソース間の不一致が考えられます。',
+      },
+      staleness: {
+        title: 'データの鮮度',
+        description:
+          '価格が報告されてからの経過時間です。古いデータは現在の市場を反映しない可能性があり、設定した鮮度のしきい値を超えると古いデータとして扱われます。',
+      },
+      weights: {
+        title: '集計ウェイト',
+        description:
+          '加重集計において各有効なオラクルソースが占める割合です。有効なウェイトの合計は100%で、除外されたソースは寄与しません。',
+      },
+    },
+  },
+
   table: {
     ariaLabel: '価格フィードテーブル',
     columns: {
@@ -196,6 +224,7 @@ const ja = {
       mustBePositive: '正の数である必要があります',
       upperGreaterThanLower: '下限しきい値より大きい値を入力してください',
       lowerLessThanUpper: '上限しきい値より小さい値を入力してください',
+      invalidDate: '有効な日付を入力してください',
     },
     conditions: {
       title: '追加条件',
@@ -237,6 +266,12 @@ const ja = {
       title: '再テスト時に通知',
       description: '価格がこの突破済みレベルを離れた後、再び入った場合にも発火します。',
     },
+    lifecycle: {
+      title: 'ルールのスケジュール',
+      expiryLabel: '有効期限（任意）',
+      reviewLabel: '確認リマインダー（任意）',
+      description: '有効期限日の現地時間終了時にルールを無効化します。確認日はリマインダーのみです。',
+    },
     // ── Alert simulation (#490) ──────────────────────────────────────────
     simulate: {
       title: 'アラートをテスト',
@@ -250,6 +285,18 @@ const ja = {
       description: 'このアラートの配信先を選択します。空のままにすると、通知設定で構成したチャンネルが使用されます。',
       useGlobal: 'グローバルデフォルトを使用',
       noneConfigured: 'チャンネルが設定されていません — 先に通知設定でチャンネルを設定してください。',
+      readiness: {
+        title: '通知先の準備状況',
+        remoteNote: 'ローカル設定とブラウザー権限のみ確認します。リモート配信の状態は確認しません。',
+        blocked: '保存する前に通知先の問題を解決してください。',
+        ready: 'ローカル設定済み',
+        disabled: '通知設定でこのチャンネルは無効です',
+        missingConfiguration: 'チャンネルに必要な設定がありません',
+        missingSecret: 'セッション中のみのシークレットがありません。通知設定で再入力してください',
+        permissionRequired: 'ブラウザー通知の許可が必要です',
+        permissionDenied: 'ブラウザー通知が拒否されています。ブラウザー設定で変更してください',
+        unsupported: 'この環境ではブラウザー通知を利用できません',
+      },
     },
     presets: {
       title: 'プリセットから開始',
@@ -267,6 +314,24 @@ const ja = {
     newBadge: '{{count}}件 新着',
     empty: 'アラートはまだ設定されていません',
     close: 'アラートパネルを閉じる',
+    delivery: {
+      title: '通知の試行履歴',
+      empty: 'このセッションでは試行が記録されていません。以前の履歴は利用できません。',
+      status_queued: '再試行中',
+      status_delivered: '受付済み',
+      status_failed: '失敗',
+      attemptCount: '{{count}}回試行',
+      attemptDelivered: '{{attempt}}回目の試行を受付',
+      attemptFailed: '{{attempt}}回目の試行に失敗: {{error}}',
+      unknownError: '不明なエラー',
+    },
+    lifecycle: {
+      title: 'ルールのスケジュール',
+      expired: '期限切れ',
+      expiresOn: '{{date}}に期限切れ',
+      reviewDue: '確認が必要です',
+      reviewOn: '{{date}}に確認',
+    },
     sections: {
       triggered: '発動済み',
       active: 'アクティブなアラート',
@@ -332,6 +397,23 @@ const ja = {
     tabs: {
       alerts: 'アラート',
       history: '履歴',
+      archived: 'アーカイブ済み',
+    },
+    bulk: {
+      selectRules: 'ルールを選択（{{count}}件選択中）',
+      selectAll: 'すべて選択',
+      clearSelection: '選択を解除',
+      pause: '選択したルールを一時停止',
+      archive: '選択したルールをアーカイブ',
+      editDates: '日付を一括編集',
+      applyExpiry: '有効期限を変更',
+      applyReview: '確認リマインダーを変更',
+      expiryHelp: '日付を選択するか、空欄にして有効期限を解除します。現地時間の最終時刻に適用されます。',
+      reviewHelp: '日付を選択するか、空欄にしてリマインダーを解除します。',
+      saveDates: '日付の変更を適用',
+      cancel: 'キャンセル',
+      restore: 'ルールを復元',
+      archivedEmpty: 'アーカイブ済みのルールはありません',
     },
     history: {
       empty: 'まだ発火したアラートはありません',
@@ -409,13 +491,21 @@ const ja = {
 
   pwa: {
     installTitle: 'Stellar Oracle をインストール',
-    installDetail: 'このアプリをデバイスに追加すると、すばやくアクセスでき、オフラインでも利用できます。',
+    installDetail: 'オラクル価格にすぐアクセスできます。アプリの基本部分はオフラインでも利用できます。',
     installAction: 'インストール',
+    installing: '起動中…',
     installDismiss: '後で',
+    installError: 'インストール画面を開けませんでした。ブラウザーのメニューからインストールできます。',
     updateTitle: 'アップデートがあります',
-    updateDetail: '新しいバージョンの準備ができました。',
+    updateVersion: 'バージョン {{version}}',
+    updateNotes: '最新の修正と改善が含まれています。',
     updateAction: '再読み込み',
+    updating: '適用中…',
     updateDismiss: '後で',
+    offlineReady: 'アプリの基本部分をオフラインで利用できます。最新価格の取得には接続が必要です。',
+    errorTitle: 'アップデートまたはオフライン機能を利用できません',
+    errorDetail: '現在のアプリはオンラインで引き続き利用できます。要求された変更は適用されませんでした。',
+    dismissError: '閉じる',
   },
 
   notFound: {
@@ -437,6 +527,8 @@ const ja = {
     confidence: '信頼度{{value}}%',
     updated: '{{time}}に更新',
     historyError: '価格履歴の読み込みに失敗しました: {{message}}',
+    historyStorageWarning:
+      'ブラウザーのストレージが上限に近づいています。ローカルに保存された価格履歴が削除される可能性がありますが、ライブ価格には影響しません。',
     emptyState: {
       title: '価格データがありません',
       detail: 'このペアの価格データはありません。',
@@ -519,6 +611,7 @@ const ja = {
     fields: {
       refreshInterval: '更新間隔',
       chartTimeRange: 'チャート時間範囲',
+      chartHistoryPageSize: 'ページごとのチャート履歴ポイント数',
       staleThreshold: '古いデータのしきい値',
     },
     accessibility: {

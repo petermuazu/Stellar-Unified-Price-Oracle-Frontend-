@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { cleanup, render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { PriceHistoryEntry } from '../types'
 import { MultiPairOverlayChart } from './MultiPairOverlayChart'
 
@@ -30,6 +31,12 @@ const sampleHistory: Record<string, PriceHistoryEntry[]> = {
   'ETH/USD': ethHistory,
 }
 
+function asLocalDateTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${String(date.getMilliseconds()).padStart(3, '0')}`
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('MultiPairOverlayChart', () => {
@@ -45,6 +52,11 @@ describe('MultiPairOverlayChart', () => {
   it('shows an empty state when history is empty', () => {
     render(<MultiPairOverlayChart pairs={['BTC/USD']} history={{}} />)
     expect(screen.getByText(/no historical data available/i)).toBeInTheDocument()
+  })
+
+  it('reports unavailable aligned data when a benchmark has no history', () => {
+    render(<MultiPairOverlayChart pairs={['BTC/USD', 'ETH/USD']} history={{}} benchmarkPair="ETH/USD" />)
+    expect(screen.getByText(/no aligned historical observations are available/i)).toBeInTheDocument()
   })
 
   it('renders legend entries for each pair', () => {
@@ -79,5 +91,65 @@ describe('MultiPairOverlayChart', () => {
     render(<MultiPairOverlayChart pairs={['BTC/USD', 'ETH/USD']} history={sampleHistory} normalizedMode />)
     // "% Change" appears in the header text in normalized mode
     expect(screen.getByText(/% Change/i)).toBeInTheDocument()
+  })
+
+  it('calculates returns for the selected inclusive period and names both boundaries', () => {
+    render(<MultiPairOverlayChart pairs={['BTC/USD', 'ETH/USD']} history={sampleHistory} benchmarkPair="ETH/USD" />)
+    const start = screen.getByLabelText('Comparison interval start')
+    const end = screen.getByLabelText('Comparison interval end')
+    fireEvent.change(start, { target: { value: asLocalDateTime(NOW - 1_800_000) } })
+    fireEvent.change(end, { target: { value: asLocalDateTime(NOW) } })
+
+    expect(screen.getByText('+$1,000.00')).toBeInTheDocument()
+    expect(screen.getByText('+1.96%')).toBeInTheDocument()
+    expect(screen.getByText(/Observed boundaries:/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Rolling beta and volatility window')).toBeInTheDocument()
+  })
+
+  it('announces invalid intervals and withholds analytics', () => {
+    render(<MultiPairOverlayChart pairs={['BTC/USD', 'ETH/USD']} history={sampleHistory} benchmarkPair="ETH/USD" />)
+    fireEvent.change(screen.getByLabelText('Comparison interval start'), {
+      target: { value: asLocalDateTime(NOW) },
+    })
+    fireEvent.change(screen.getByLabelText('Comparison interval end'), {
+      target: { value: asLocalDateTime(NOW - 3_600_000) },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/start at or before the end/i)
+  })
+
+  it('keeps date controls available when a valid interval has no observations', () => {
+    render(<MultiPairOverlayChart pairs={['BTC/USD', 'ETH/USD']} history={sampleHistory} benchmarkPair="ETH/USD" />)
+    const gap = asLocalDateTime(NOW - 2_700_000)
+    fireEvent.change(screen.getByLabelText('Comparison interval start'), { target: { value: gap } })
+    fireEvent.change(screen.getByLabelText('Comparison interval end'), { target: { value: gap } })
+
+    expect(screen.getByText(/no aligned observations/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Comparison interval start')).toBeInTheDocument()
+  })
+
+  it('clearly reports insufficient history for rolling beta and volatility regimes', () => {
+    render(<MultiPairOverlayChart pairs={['BTC/USD', 'ETH/USD']} history={sampleHistory} benchmarkPair="ETH/USD" />)
+    expect(screen.getByText('Insufficient data')).toBeInTheDocument()
+    expect(screen.getByText(/Insufficient observations to identify volatility regimes/i)).toBeInTheDocument()
+  })
+
+  it('keeps interval and rolling-window controls keyboard reachable', async () => {
+    const user = userEvent.setup()
+    render(
+      <MultiPairOverlayChart
+        pairs={['BTC/USD', 'ETH/USD']}
+        history={sampleHistory}
+        benchmarkPair="ETH/USD"
+        onExport={vi.fn()}
+      />,
+    )
+    await user.tab()
+    await user.tab()
+    expect(document.activeElement).toBe(screen.getByLabelText('Comparison interval start'))
+    await user.tab()
+    expect(document.activeElement).toBe(screen.getByLabelText('Comparison interval end'))
+    await user.tab()
+    expect(document.activeElement).toBe(screen.getByLabelText('Rolling beta and volatility window'))
   })
 })

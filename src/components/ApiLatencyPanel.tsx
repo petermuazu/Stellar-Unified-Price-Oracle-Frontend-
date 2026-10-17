@@ -12,13 +12,7 @@ import {
 
 function StatBadge({ label, value }: { label: string; value: number | null }) {
   const cls =
-    value == null
-      ? 'text-gray-500'
-      : value > 1000
-        ? 'text-red-400'
-        : value > 500
-          ? 'text-yellow-400'
-          : 'text-green-400'
+    value == null ? 'text-gray-500' : value > 1000 ? 'text-red-400' : value > 500 ? 'text-yellow-400' : 'text-green-400'
   return (
     <div className="bg-gray-800 rounded p-2 text-xs">
       <div className="text-gray-400">{label}</div>
@@ -32,12 +26,14 @@ export const ApiLatencyPanel = memo(function ApiLatencyPanel() {
   const [stats, setStats] = useState<LatencyStats>(() => getLatencyStats())
   const [threshold, setThreshold] = useState(getLatencyAlertThreshold)
 
-  useEffect(() =>
-    subscribeLatency((s) => {
-      setSamples(s.slice(-100))
-      setStats(getLatencyStats())
-    }),
-  [])
+  useEffect(
+    () =>
+      subscribeLatency((s) => {
+        setSamples(s.slice(-100))
+        setStats(getLatencyStats())
+      }),
+    [],
+  )
 
   const recent = [...samples].reverse().slice(0, 50)
 
@@ -90,7 +86,7 @@ export const ApiLatencyPanel = memo(function ApiLatencyPanel() {
             <li key={i} className="flex items-center gap-2 text-xs font-mono">
               <span className="text-gray-500">{new Date(s.timestamp).toLocaleTimeString()}</span>
               <span
-                className={`font-bold w-14 text-right ${
+                className={`font-bold w-14 text-end ${
                   s.latencyMs > 1000 ? 'text-red-400' : s.latencyMs > 500 ? 'text-yellow-400' : 'text-green-400'
                 }`}
               >

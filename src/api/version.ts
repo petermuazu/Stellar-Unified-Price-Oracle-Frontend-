@@ -63,7 +63,7 @@ export function getAppVersion(): string {
   }
 
   // Fallback to package.json version
-  return import.meta.env.VITE_APP_VERSION || '0.0.0'
+  return import.meta.env.VITE_APP_VERSION || __APP_VERSION__
 }
 
 /**

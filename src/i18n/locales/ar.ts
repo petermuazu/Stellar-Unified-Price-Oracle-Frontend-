@@ -206,6 +206,7 @@ const ar = {
       mustBePositive: 'يجب أن يكون رقماً موجباً',
       upperGreaterThanLower: 'يجب أن يكون أكبر من الحد الأدنى',
       lowerLessThanUpper: 'يجب أن يكون أصغر من الحد الأعلى',
+      invalidDate: 'أدخل تاريخاً صالحاً',
     },
     conditions: {
       title: 'شروط إضافية',
@@ -242,6 +243,30 @@ const ar = {
       error_invalidDelay: 'الخطوة {{step}}: يجب أن يكون التأخير عدد دقائق غير سالب',
       error_outOfOrder: 'الخطوة {{step}}: لا يمكن أن يكون التأخير أبكر من الخطوة السابقة',
     },
+    lifecycle: {
+      title: 'دورة حياة القاعدة',
+      expiryLabel: 'تاريخ الانتهاء (اختياري)',
+      reviewLabel: 'تذكير بالمراجعة (اختياري)',
+      description: 'يعطّل تاريخ الانتهاء القاعدة في نهاية ذلك اليوم المحلي. تاريخ المراجعة للتذكير فقط.',
+    },
+    channels: {
+      title: 'الإشعار عبر',
+      description: 'اختر مكان تسليم هذا التنبيه. اتركه فارغاً لاستخدام القنوات المضبوطة في إعدادات الإشعارات.',
+      useGlobal: 'استخدام الإعدادات العامة',
+      noneConfigured: 'لم يتم ضبط أي قنوات — اضبط القنوات في إعدادات الإشعارات أولاً.',
+      readiness: {
+        title: 'جاهزية القنوات',
+        remoteNote: 'يتم التحقق من الإعدادات المحلية وإذن المتصفح فقط؛ لا يتم فحص التسليم عن بُعد.',
+        blocked: 'عالج مشكلات جاهزية القنوات قبل الحفظ.',
+        ready: 'جاهز محلياً',
+        disabled: 'القناة معطلة في إعدادات الإشعارات',
+        missingConfiguration: 'إعدادات القناة المطلوبة مفقودة',
+        missingSecret: 'السر الخاص بالجلسة مفقود؛ أدخله مجدداً في إعدادات الإشعارات',
+        permissionRequired: 'إذن إشعارات المتصفح غير ممنوح',
+        permissionDenied: 'تم رفض إشعارات المتصفح؛ غيّر الإذن من إعدادات المتصفح',
+        unsupported: 'إشعارات المتصفح غير متاحة في هذه البيئة',
+      },
+    },
     presets: {
       title: 'ابدأ من قالب جاهز',
       myPresets: 'قوالبي',
@@ -259,6 +284,24 @@ const ar = {
     newBadge: '{{count}} جديد',
     empty: 'لم يتم ضبط أي تنبيهات بعد',
     close: 'إغلاق لوحة التنبيهات',
+    delivery: {
+      title: 'محاولات التسليم',
+      empty: 'لا توجد محاولات مسجلة في هذه الجلسة؛ السجل السابق غير متاح.',
+      status_queued: 'إعادة المحاولة',
+      status_delivered: 'تم القبول',
+      status_failed: 'فشل',
+      attemptCount: '{{count}} محاولات',
+      attemptDelivered: 'تم قبول المحاولة {{attempt}}',
+      attemptFailed: 'فشلت المحاولة {{attempt}}: {{error}}',
+      unknownError: 'خطأ غير معروف',
+    },
+    lifecycle: {
+      title: 'جدول القاعدة',
+      expired: 'منتهي',
+      expiresOn: 'ينتهي {{date}}',
+      reviewDue: 'حان موعد المراجعة',
+      reviewOn: 'مراجعة {{date}}',
+    },
     sections: {
       triggered: 'مُفعَّل',
       active: 'تنبيهات نشطة',
@@ -314,6 +357,23 @@ const ar = {
     tabs: {
       alerts: 'التنبيهات',
       history: 'السجل',
+      archived: 'المؤرشفة',
+    },
+    bulk: {
+      selectRules: 'تحديد القواعد ({{count}} محددة)',
+      selectAll: 'تحديد الكل',
+      clearSelection: 'مسح التحديد',
+      pause: 'إيقاف المحدد مؤقتاً',
+      archive: 'أرشفة المحدد',
+      editDates: 'تعديل التواريخ جماعياً',
+      applyExpiry: 'تغيير تاريخ الانتهاء',
+      applyReview: 'تغيير تذكير المراجعة',
+      expiryHelp: 'اختر تاريخاً أو اتركه فارغاً لمسح الانتهاء. ينتهي في نهاية اليوم المحلي.',
+      reviewHelp: 'اختر تاريخاً أو اتركه فارغاً لمسح التذكير.',
+      saveDates: 'تطبيق تغييرات التاريخ',
+      cancel: 'إلغاء',
+      restore: 'استعادة القاعدة',
+      archivedEmpty: 'لا توجد قواعد مؤرشفة',
     },
     history: {
       empty: 'لم يُفعَّل أي تنبيه بعد',
@@ -406,6 +466,8 @@ const ar = {
     confidence: 'ثقة {{value}}%',
     updated: 'تحديث {{time}}',
     historyError: 'فشل تحميل تاريخ الأسعار: {{message}}',
+    historyStorageWarning:
+      'مساحة تخزين المتصفح تقترب من الحد الأقصى. قد يحذف المتصفح سجل الأسعار المحفوظ محليًا؛ الأسعار المباشرة غير متأثرة.',
     emptyState: {
       title: 'لا تتوفر بيانات أسعار',
       detail: 'لا تتوفر بيانات أسعار لهذا الزوج.',
@@ -463,6 +525,7 @@ const ar = {
     fields: {
       refreshInterval: 'فترة التحديث',
       chartTimeRange: 'نطاق وقت الرسم البياني',
+      chartHistoryPageSize: 'نقاط السجل لكل صفحة',
       staleThreshold: 'حد الأصول القديمة',
     },
     accessibility: {

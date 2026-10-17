@@ -56,7 +56,7 @@ exports[`snapshots > create mode 1`] = `
           class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2"
         >
           <button
-            class="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            class="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
             type="button"
           >
             <div
@@ -94,7 +94,7 @@ exports[`snapshots > create mode 1`] = `
             </p>
           </button>
           <button
-            class="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            class="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
             type="button"
           >
             <div
@@ -132,7 +132,7 @@ exports[`snapshots > create mode 1`] = `
             </p>
           </button>
           <button
-            class="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            class="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
             type="button"
           >
             <div
@@ -319,6 +319,28 @@ exports[`snapshots > create mode 1`] = `
           Fires every time the condition is met. Tracks fire count.
         </p>
         <div
+          class="mt-3 border-t border-gray-700 pt-3"
+        >
+          <label
+            class="flex items-center gap-2 cursor-pointer"
+          >
+            <input
+              class="w-4 h-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500/50"
+              type="checkbox"
+            />
+            <span
+              class="text-sm font-medium text-gray-300"
+            >
+              Notify when condition clears
+            </span>
+          </label>
+          <p
+            class="text-xs text-gray-500 mt-1.5"
+          >
+            Send a recovery notice through the same enabled channels when this rule stops matching.
+          </p>
+        </div>
+        <div
           class="mt-3 pt-3 border-t border-gray-700"
         >
           <label
@@ -364,6 +386,54 @@ exports[`snapshots > create mode 1`] = `
           </p>
         </div>
       </div>
+      <fieldset
+        class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+      >
+        <legend
+          class="px-1 text-sm font-medium text-gray-300"
+        >
+          Rule lifecycle
+        </legend>
+        <div
+          class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+        >
+          <div>
+            <label
+              class="block text-xs font-medium text-gray-400 mb-1.5"
+              for="alert-expiry-date"
+            >
+              Expiry date (optional)
+            </label>
+            <input
+              aria-invalid="false"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              id="alert-expiry-date"
+              type="date"
+              value=""
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-medium text-gray-400 mb-1.5"
+              for="alert-review-date"
+            >
+              Review reminder (optional)
+            </label>
+            <input
+              aria-invalid="false"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              id="alert-review-date"
+              type="date"
+              value=""
+            />
+          </div>
+        </div>
+        <p
+          class="mt-2 text-xs text-gray-500"
+        >
+          Expiry disables this rule at the end of that local date. Review dates are reminders only.
+        </p>
+      </fieldset>
       <div
         class="mb-5 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
       >
@@ -437,6 +507,38 @@ exports[`snapshots > create mode 1`] = `
           No channels configured — set up channels in Notification Settings first.
         </p>
       </div>
+      <section
+        aria-labelledby="alert-channel-readiness-title"
+        aria-live="polite"
+        class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+      >
+        <h3
+          class="text-sm font-medium text-gray-300 mb-2"
+          id="alert-channel-readiness-title"
+        >
+          Channel readiness
+        </h3>
+        <ul
+          class="space-y-1 text-xs"
+        >
+          <li
+            class="flex gap-1 text-green-300"
+          >
+            <span>
+              In-App
+              :
+            </span>
+            <span>
+              Ready locally
+            </span>
+          </li>
+        </ul>
+        <p
+          class="mt-2 text-[11px] text-gray-500"
+        >
+          Checks verify local settings and browser permission only; remote delivery is not probed.
+        </p>
+      </section>
       <div
         class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
       >
@@ -679,6 +781,28 @@ exports[`snapshots > edit mode 1`] = `
           Fires every time the condition is met. Tracks fire count.
         </p>
         <div
+          class="mt-3 border-t border-gray-700 pt-3"
+        >
+          <label
+            class="flex items-center gap-2 cursor-pointer"
+          >
+            <input
+              class="w-4 h-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500/50"
+              type="checkbox"
+            />
+            <span
+              class="text-sm font-medium text-gray-300"
+            >
+              Notify when condition clears
+            </span>
+          </label>
+          <p
+            class="text-xs text-gray-500 mt-1.5"
+          >
+            Send a recovery notice through the same enabled channels when this rule stops matching.
+          </p>
+        </div>
+        <div
           class="mt-3 pt-3 border-t border-gray-700"
         >
           <label
@@ -724,6 +848,54 @@ exports[`snapshots > edit mode 1`] = `
           </p>
         </div>
       </div>
+      <fieldset
+        class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+      >
+        <legend
+          class="px-1 text-sm font-medium text-gray-300"
+        >
+          Rule lifecycle
+        </legend>
+        <div
+          class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+        >
+          <div>
+            <label
+              class="block text-xs font-medium text-gray-400 mb-1.5"
+              for="alert-expiry-date"
+            >
+              Expiry date (optional)
+            </label>
+            <input
+              aria-invalid="false"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              id="alert-expiry-date"
+              type="date"
+              value=""
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-medium text-gray-400 mb-1.5"
+              for="alert-review-date"
+            >
+              Review reminder (optional)
+            </label>
+            <input
+              aria-invalid="false"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              id="alert-review-date"
+              type="date"
+              value=""
+            />
+          </div>
+        </div>
+        <p
+          class="mt-2 text-xs text-gray-500"
+        >
+          Expiry disables this rule at the end of that local date. Review dates are reminders only.
+        </p>
+      </fieldset>
       <div
         class="mb-5 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
       >
@@ -797,6 +969,38 @@ exports[`snapshots > edit mode 1`] = `
           No channels configured — set up channels in Notification Settings first.
         </p>
       </div>
+      <section
+        aria-labelledby="alert-channel-readiness-title"
+        aria-live="polite"
+        class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+      >
+        <h3
+          class="text-sm font-medium text-gray-300 mb-2"
+          id="alert-channel-readiness-title"
+        >
+          Channel readiness
+        </h3>
+        <ul
+          class="space-y-1 text-xs"
+        >
+          <li
+            class="flex gap-1 text-green-300"
+          >
+            <span>
+              In-App
+              :
+            </span>
+            <span>
+              Ready locally
+            </span>
+          </li>
+        </ul>
+        <p
+          class="mt-2 text-[11px] text-gray-500"
+        >
+          Checks verify local settings and browser permission only; remote delivery is not probed.
+        </p>
+      </section>
       <div
         class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
       >
@@ -913,7 +1117,7 @@ exports[`snapshots > with suggestions 1`] = `
           class="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2"
         >
           <button
-            class="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            class="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
             type="button"
           >
             <div
@@ -951,7 +1155,7 @@ exports[`snapshots > with suggestions 1`] = `
             </p>
           </button>
           <button
-            class="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            class="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
             type="button"
           >
             <div
@@ -989,7 +1193,7 @@ exports[`snapshots > with suggestions 1`] = `
             </p>
           </button>
           <button
-            class="text-left p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
+            class="text-start p-3 bg-gray-800 border border-gray-700 rounded-xl hover:border-cyan-500/50 hover:bg-gray-800/80 transition-colors"
             type="button"
           >
             <div
@@ -1208,6 +1412,28 @@ exports[`snapshots > with suggestions 1`] = `
           Fires every time the condition is met. Tracks fire count.
         </p>
         <div
+          class="mt-3 border-t border-gray-700 pt-3"
+        >
+          <label
+            class="flex items-center gap-2 cursor-pointer"
+          >
+            <input
+              class="w-4 h-4 rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500/50"
+              type="checkbox"
+            />
+            <span
+              class="text-sm font-medium text-gray-300"
+            >
+              Notify when condition clears
+            </span>
+          </label>
+          <p
+            class="text-xs text-gray-500 mt-1.5"
+          >
+            Send a recovery notice through the same enabled channels when this rule stops matching.
+          </p>
+        </div>
+        <div
           class="mt-3 pt-3 border-t border-gray-700"
         >
           <label
@@ -1253,6 +1479,54 @@ exports[`snapshots > with suggestions 1`] = `
           </p>
         </div>
       </div>
+      <fieldset
+        class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+      >
+        <legend
+          class="px-1 text-sm font-medium text-gray-300"
+        >
+          Rule lifecycle
+        </legend>
+        <div
+          class="grid grid-cols-1 sm:grid-cols-2 gap-3"
+        >
+          <div>
+            <label
+              class="block text-xs font-medium text-gray-400 mb-1.5"
+              for="alert-expiry-date"
+            >
+              Expiry date (optional)
+            </label>
+            <input
+              aria-invalid="false"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              id="alert-expiry-date"
+              type="date"
+              value=""
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-medium text-gray-400 mb-1.5"
+              for="alert-review-date"
+            >
+              Review reminder (optional)
+            </label>
+            <input
+              aria-invalid="false"
+              class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              id="alert-review-date"
+              type="date"
+              value=""
+            />
+          </div>
+        </div>
+        <p
+          class="mt-2 text-xs text-gray-500"
+        >
+          Expiry disables this rule at the end of that local date. Review dates are reminders only.
+        </p>
+      </fieldset>
       <div
         class="mb-5 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
       >
@@ -1326,6 +1600,38 @@ exports[`snapshots > with suggestions 1`] = `
           No channels configured — set up channels in Notification Settings first.
         </p>
       </div>
+      <section
+        aria-labelledby="alert-channel-readiness-title"
+        aria-live="polite"
+        class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
+      >
+        <h3
+          class="text-sm font-medium text-gray-300 mb-2"
+          id="alert-channel-readiness-title"
+        >
+          Channel readiness
+        </h3>
+        <ul
+          class="space-y-1 text-xs"
+        >
+          <li
+            class="flex gap-1 text-green-300"
+          >
+            <span>
+              In-App
+              :
+            </span>
+            <span>
+              Ready locally
+            </span>
+          </li>
+        </ul>
+        <p
+          class="mt-2 text-[11px] text-gray-500"
+        >
+          Checks verify local settings and browser permission only; remote delivery is not probed.
+        </p>
+      </section>
       <div
         class="mb-6 p-3 bg-gray-800/50 border border-gray-700 rounded-xl"
       >

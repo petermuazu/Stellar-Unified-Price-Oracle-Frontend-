@@ -20,6 +20,8 @@ import { WsMessageSchema } from './schemas'
 import {
   type ConnectionStatus,
   type ConnectionDiagnostics,
+  type ReconnectCause,
+  type ReconnectCauseCounts,
   MAX_RETRIES,
   HEARTBEAT_INTERVAL_MS,
   HEARTBEAT_TIMEOUT_MS,
@@ -52,6 +54,8 @@ export class SseClient {
   private _lastConnectedAt: number | null = null
   private _totalDisconnections = 0
   private _status: ConnectionStatus = 'disconnected'
+  private _lastReconnectCause: ReconnectCause | null = null
+  private _reconnectCauseCounts: ReconnectCauseCounts = { network: 0, browser: 0, server: 0, unknown: 0 }
 
   constructor(private readonly baseUrl: string) {}
 
@@ -65,6 +69,8 @@ export class SseClient {
       lastConnectedAt: this._lastConnectedAt,
       totalDisconnections: this._totalDisconnections,
       transport: 'sse',
+      lastReconnectCause: this._lastReconnectCause,
+      reconnectCauseCounts: { ...this._reconnectCauseCounts },
     }
   }
 
@@ -111,9 +117,16 @@ export class SseClient {
 
     es.onerror = () => {
       wsAnalytics.recordError('sse')
+      this.recordReconnectCause()
       this.teardown()
       this.scheduleReconnect()
     }
+  }
+
+  private recordReconnectCause(): void {
+    const type = typeof navigator !== 'undefined' && navigator.onLine === false ? 'network' : 'browser'
+    this._lastReconnectCause = { type, timestamp: Date.now() }
+    this._reconnectCauseCounts[type] += 1
   }
 
   private teardown() {

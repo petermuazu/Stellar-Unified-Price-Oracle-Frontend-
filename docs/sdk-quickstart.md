@@ -3,6 +3,25 @@
 These examples use the published `@stellar-unified-price-oracle/sdk` package (`1.0.0`).
 The client talks to the same REST and WebSocket endpoints documented at `/api-docs`.
 
+## Runtime compatibility
+
+The SDK publishes ESM and CommonJS builds with TypeScript declarations. It does
+not bundle Fetch or WebSocket polyfills; compatibility depends on the runtime
+features available to the application.
+
+| Runtime                                                     | REST requests                                 | Live subscriptions                                                                         | Notes                                                                                                                                      |
+| ----------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Chrome, Edge, Firefox, and Safari (current stable releases) | Supported with native `fetch`                 | Supported with native `WebSocket`                                                          | Use a bundler that supports ESM for browser applications. Exact oldest supported browser versions are not pinned or tested by the project. |
+| Node.js 18+                                                 | Supported; Node.js 18 provides native `fetch` | Requires a runtime with a global `WebSocket` or an application-provided WebSocket polyfill | The SDK's `subscribe()` method reads `globalThis.WebSocket`.                                                                               |
+| React 18+                                                   | Supported through the `./react` entry point   | Supported when the host runtime provides `WebSocket`                                       | React is a peer dependency; the hooks entry point is optional.                                                                             |
+| Deno, Bun, and other JavaScript runtimes                    | Not officially verified                       | Not officially verified                                                                    | They may work when their Fetch, WebSocket, ESM, and package-resolution behavior matches the requirements above.                            |
+
+The Node.js minimum applies to REST calls (`fetch`). The SDK package does not
+declare an `engines` minimum, and the repository does not run an automated
+cross-browser or cross-runtime CI matrix; consumers should test the exact
+runtime version they deploy. CommonJS and ESM entry points are both published,
+but browser users should prefer ESM through their bundler.
+
 ## React
 
 ```bash
@@ -30,7 +49,9 @@ export function PriceCard() {
   import { OracleClient } from '@stellar-unified-price-oracle/sdk'
   const client = new OracleClient({ baseUrl: 'https://api.example.com' })
   const output = document.querySelector('#price')
-  const render = (price) => { output.textContent = `${price.assetPair}: ${price.price}` }
+  const render = (price) => {
+    output.textContent = `${price.assetPair}: ${price.price}`
+  }
   render(await client.getPrice('XLM-USD'))
   const stop = client.subscribe(['XLM-USD'], render)
   window.addEventListener('pagehide', stop, { once: true })
@@ -66,6 +87,27 @@ const stop = client.subscribe(['XLM-USD', 'BTC-USD'], (price) => {
 
 Call `stop()` when the view or process no longer needs updates.
 
+## Offline local fixtures
+
+When working from a repository checkout, start the local deterministic REST
+fixture server in one terminal:
+
+```bash
+npm run sdk:fixture-server
+```
+
+Then point the SDK at it from another terminal or local frontend:
+
+```ts
+const client = new OracleClient({ baseUrl: 'http://127.0.0.1:4178' })
+const price = await client.getPrice('XLM-USD')
+```
+
+The server provides fixture responses for `getPrice`, `getPrices`, `getHistory`,
+and `createAlert`; it binds to loopback and makes no upstream requests. It does
+not implement WebSocket subscriptions. These values are examples for offline
+development only, not live or production oracle data.
+
 ## Alert conditions
 
 Alerts can combine an absolute threshold with a percentage move. The SDK sends the same shape used by the dashboard:
@@ -81,6 +123,34 @@ await client.createAlert({
 ```
 
 Use `percentageDirection: 'down'` for a fall, or `'either'` to alert in both directions. Keep the package version in this guide aligned with the published SDK release before publishing a new release.
+
+## Safe retries for mutations
+
+`createAlert` retries retryable network, rate-limit, and server failures
+automatically. The SDK reuses one `Idempotency-Key` across those attempts. For
+an application-level retry after the SDK has exhausted its attempts, reuse the
+same key for the same logical alert creation:
+
+```ts
+import { OracleError } from '@stellar-unified-price-oracle/sdk'
+
+const input = { assetPair: 'XLM-USD', upperThreshold: 1.25 }
+const idempotencyKey = crypto.randomUUID()
+
+try {
+  await client.createAlert(input, { idempotencyKey })
+} catch (error) {
+  if (!(error instanceof OracleError) || !error.retryable) throw error
+  // The server may have completed the first request even if its response was lost.
+  await client.createAlert(input, { idempotencyKey })
+}
+```
+
+Generate the key once per user action, not once per attempt. If the action can
+be resumed after a process restart, persist its key alongside that pending
+operation and reuse it; do not persist credentials. Never retry a failed
+validation or version mismatch as though it were transient. Server-side
+idempotency support is required to deduplicate the requests.
 
 ## Installing and versioning
 

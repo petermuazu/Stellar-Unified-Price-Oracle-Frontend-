@@ -4,6 +4,7 @@ import type { AlertCondition, ConditionGroup, PriceEvaluationState, AlertFormDat
 import {
   evaluateCondition,
   evaluateCompoundCondition,
+  evaluateCompoundConditionWithTrace,
   combineConditions,
   buildConditionGroupFromFormData,
 } from './alertEvaluator'
@@ -59,6 +60,47 @@ describe('evaluateCompoundCondition — truth tables', () => {
     expect(evaluateCompoundCondition(group, { price })).toBe(expected)
   })
 
+  describe('evaluateCompoundConditionWithTrace', () => {
+    it('keeps every nested leaf result and a reason for each failed check', () => {
+      const group: ConditionGroup = {
+        id: 'root',
+        logic: 'AND',
+        conditions: [
+          { id: 'price-check', field: 'price', operator: 'gte', value: 100 },
+          {
+            id: 'pct-group',
+            logic: 'OR',
+            conditions: [{ id: 'change-check', field: 'percentageChange', operator: 'gte', value: 5, window: '1hr' }],
+          },
+        ],
+      }
+
+      expect(evaluateCompoundConditionWithTrace(group, { price: 90, percentageChange: { '1hr': 1 } })).toEqual({
+        matched: false,
+        conditions: [
+          {
+            conditionId: 'price-check',
+            field: 'price',
+            operator: 'gte',
+            expected: 100,
+            actual: 90,
+            matched: false,
+            reason: 'condition_not_met',
+          },
+          {
+            conditionId: 'change-check',
+            field: 'percentageChange',
+            operator: 'gte',
+            expected: 5,
+            actual: 1,
+            matched: false,
+            reason: 'condition_not_met',
+          },
+        ],
+      })
+    })
+  })
+
   it.each([
     [150, true], // > 100
     [10, true], // < 50
@@ -110,6 +152,28 @@ describe('evaluateCompoundCondition — truth tables', () => {
   it('empty AND group is vacuously true; empty OR group is false', () => {
     expect(evaluateCompoundCondition({ id: 'g', logic: 'AND', conditions: [] }, { price: 1 })).toBe(true)
     expect(evaluateCompoundCondition({ id: 'g', logic: 'OR', conditions: [] }, { price: 1 })).toBe(false)
+  })
+})
+
+describe('findFirstMatchingPrice', () => {
+  it('preserves a threshold-crossing sample even when the latest rendered price is below it', () => {
+    const group: ConditionGroup = {
+      id: 'g',
+      logic: 'AND',
+      conditions: [{ id: 'cross', field: 'price', operator: 'gte', value: 10 }],
+    }
+
+    expect(findFirstMatchingPrice(group, [9, 11, 8], (price) => ({ price }))).toBe(11)
+  })
+
+  it('returns undefined when no sampled value satisfies the condition', () => {
+    const group: ConditionGroup = {
+      id: 'g',
+      logic: 'OR',
+      conditions: [{ id: 'cross', field: 'price', operator: 'gte', value: 10 }],
+    }
+
+    expect(findFirstMatchingPrice(group, [0, 8, 9], (price) => ({ price }))).toBeUndefined()
   })
 })
 
@@ -214,7 +278,10 @@ describe('buildConditionGroupFromFormData', () => {
     escalationEnabled: false,
     escalationSteps: [],
     channels: [],
+    notifyOnRecovery: false,
     retestMode: false,
+    expiryDate: '',
+    reviewDate: '',
   }
 
   it('builds an OR group from both thresholds when no extra conditions are added', () => {

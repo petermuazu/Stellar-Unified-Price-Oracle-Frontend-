@@ -12,7 +12,8 @@ The Stellar Oracle frontend now includes comprehensive error reporting with Sent
 ✅ **Breadcrumb Logging** — Trace user actions leading to errors  
 ✅ **Performance Monitoring** — Track slow operations and Core Web Vitals  
 ✅ **Custom Contexts** — Add domain-specific metadata to errors  
-✅ **Error Boundaries** — React component error tracking  
+✅ **Request Trace IDs** — Correlate a reportable client-side failure with its UI error message
+✅ **Error Boundaries** — React component error tracking
 ✅ **Local Storage** — Store recent errors for offline debugging  
 ✅ **Non-Blocking** — Error reporting never breaks the app  
 
@@ -374,6 +375,13 @@ console.save(json, 'error-report.json')
 ```
 
 Max 50 errors stored locally. Older errors are discarded.
+
+Each report also includes a client-generated `traceId` in its stored record,
+reporting context, and Sentry event context. The API playground shows that same
+identifier alongside a failed request so a user can share it with support. It
+is a client-side correlation ID only: the frontend does not send a new request
+header or require an upstream API contract change. Trace IDs are not user or
+session identifiers.
 
 ## Best Practices
 

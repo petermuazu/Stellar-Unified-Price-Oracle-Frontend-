@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { fetchPricesBatched } from '../api/rest'
 import { ATTRIBUTION_RING_BUFFER_SIZE } from '../types'
 import type { TickCoalescerStats } from '../utils/tickCoalescer'
+import { PreferencesProvider } from '../preferences/PreferencesContext'
 import { ToastProvider } from './ToastContext'
 import { PriceProvider, usePriceContext } from './PriceContext'
 
@@ -12,6 +14,7 @@ const mockConnect = vi.fn()
 const mockDisconnect = vi.fn()
 const mockSubscribe = vi.fn()
 const mockUnsubscribe = vi.fn()
+const mockRefetchPrices = vi.fn()
 let messageHandler:
   | ((msg: {
       type: 'price_update'
@@ -35,7 +38,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
       isLoading: false,
       error: null,
       isFetching: false,
-      refetch: vi.fn(),
+      refetch: mockRefetchPrices,
     })),
   }
 })
@@ -93,11 +96,15 @@ function makeQueryClient() {
 
 function Wrapper({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={makeQueryClient()}>
-      <ToastProvider>
-        <PriceProvider>{children}</PriceProvider>
-      </ToastProvider>
-    </QueryClientProvider>
+    <MemoryRouter>
+      <PreferencesProvider>
+        <QueryClientProvider client={makeQueryClient()}>
+          <ToastProvider>
+            <PriceProvider>{children}</PriceProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      </PreferencesProvider>
+    </MemoryRouter>
   )
 }
 
@@ -147,6 +154,12 @@ function readTickPolicy(): TickCoalescerStats {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockRefetchPrices.mockResolvedValue({
+    data: [
+      { assetPair: 'BTC/USD', price: 50020, timestamp: Date.now(), confidence: 0.99, sources: ['chainlink'] },
+      { assetPair: 'ETH/USD', price: 3000, timestamp: Date.now(), confidence: 0.95, sources: ['redstone'] },
+    ],
+  })
   messageHandler = null
   vi.mocked(fetchPricesBatched).mockResolvedValue({
     assetPair: 'BTC/USD',
@@ -157,19 +170,14 @@ beforeEach(() => {
   })
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 describe('PriceProvider', () => {
   it('renders children', () => {
-    render(
-      <QueryClientProvider client={makeQueryClient()}>
-        <ToastProvider>
-          <PriceProvider>
-            <div>child</div>
-          </PriceProvider>
-        </ToastProvider>
-      </QueryClientProvider>,
-    )
+    render(<div>child</div>, { wrapper: Wrapper })
     expect(screen.getByText('child')).toBeInTheDocument()
   })
 
@@ -198,6 +206,33 @@ describe('PriceProvider', () => {
       })
     })
 
+    it('reconciles live prices against REST when a backgrounded tab becomes visible', async () => {
+      render(<TestConsumer />, { wrapper: Wrapper })
+
+      act(() => {
+        messageHandler?.({
+          type: 'price_update',
+          assetPair: 'BTC/USD',
+          price: 50010,
+          timestamp: Date.now() - 60_000,
+          confidence: 0.99,
+          sources: ['chainlink'],
+        })
+      })
+      await waitFor(() => expect(screen.getByTestId('live-size')).toHaveTextContent('1'))
+
+      const hidden = vi.spyOn(document, 'hidden', 'get')
+      hidden.mockReturnValue(true)
+      act(() => document.dispatchEvent(new Event('visibilitychange')))
+      hidden.mockReturnValue(false)
+      act(() => document.dispatchEvent(new Event('visibilitychange')))
+
+      await waitFor(() => {
+        expect(mockRefetchPrices).toHaveBeenCalledTimes(1)
+        expect(screen.getByTestId('live-size')).toHaveTextContent('0')
+      })
+    })
+
     expect(screen.getByTestId('btc-live-price').textContent).toBe('50010')
     expect(screen.getByTestId('btc-live-state').textContent).toBe('optimistic')
 
@@ -211,13 +246,17 @@ describe('PriceProvider', () => {
     const setSpy = vi.spyOn(client, 'setQueryData')
 
     render(
-      <QueryClientProvider client={client}>
-        <ToastProvider>
-          <PriceProvider>
-            <TestConsumer />
-          </PriceProvider>
-        </ToastProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <PreferencesProvider>
+          <QueryClientProvider client={client}>
+            <ToastProvider>
+              <PriceProvider>
+                <TestConsumer />
+              </PriceProvider>
+            </ToastProvider>
+          </QueryClientProvider>
+        </PreferencesProvider>
+      </MemoryRouter>,
     )
 
     act(() => {

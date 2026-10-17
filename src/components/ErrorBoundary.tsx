@@ -204,7 +204,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
         {/* Collapsible error details (dev only) */}
         {isDev && showDetails && error && (
-          <div className="w-full max-w-xl text-left">
+          <div className="w-full max-w-xl text-start">
             <pre className="text-xs text-red-300 bg-red-950/40 border border-red-900/50 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
               {error.message}
               {error.stack ? `\n\n${error.stack}` : ''}
@@ -316,7 +316,7 @@ export class PageErrorBoundary extends Component<Omit<ErrorBoundaryProps, 'showG
           )}
 
           {isDev && showDetails && error && (
-            <div className="mt-3 text-left">
+            <div className="mt-3 text-start">
               <pre className="text-xs text-red-300 bg-red-950/40 border border-red-900/50 rounded-lg p-3 overflow-auto max-h-48 whitespace-pre-wrap break-all">
                 {error.message}
                 {error.stack ? `\n\n${error.stack}` : ''}

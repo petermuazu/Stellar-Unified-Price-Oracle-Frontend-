@@ -6,18 +6,26 @@
  * dead-letter list. Non-2xx webhook responses count as failures. Channels that
  * accumulate consecutive dead letters are flagged so the UI can warn in-app.
  *
- * Assumption: no backend delivery-receipt endpoint exists; the caller supplies a
- * `send` function that resolves with an HTTP-like status (or throws).
+ * Receipts are held in memory and only represent the latest dispatch per
+ * alert/channel. No backend delivery-receipt endpoint exists yet.
  */
 import type { NotificationChannelId } from '../types'
 
 export type DeliveryStatus = 'queued' | 'delivered' | 'failed'
+
+export interface DeliveryAttempt {
+  attempt: number
+  status: 'delivered' | 'failed'
+  error?: string
+  updatedAt: number
+}
 
 export interface DeliveryReceipt {
   alertId: string
   channel: NotificationChannelId
   status: DeliveryStatus
   attempts: number
+  attemptHistory: DeliveryAttempt[]
   lastError?: string
   updatedAt: number
 }
@@ -27,7 +35,13 @@ export interface DeadLetter extends DeliveryReceipt {
   lastError: string
 }
 
-export type SendFn = () => Promise<{ status: number }>
+export interface DeliverySendResult {
+  ok: boolean
+  status?: number
+  error?: string
+}
+
+export type SendFn = () => Promise<DeliverySendResult>
 
 export const MAX_ATTEMPTS = 4
 export const BASE_BACKOFF_MS = 500
@@ -72,23 +86,45 @@ export class DeliveryTracker {
   }
 
   async deliver(alertId: string, channel: NotificationChannelId, send: SendFn): Promise<DeliveryReceipt> {
-    let receipt: DeliveryReceipt = { alertId, channel, status: 'queued', attempts: 0, updatedAt: this.now() }
+    let receipt: DeliveryReceipt = {
+      alertId,
+      channel,
+      status: 'queued',
+      attempts: 0,
+      attemptHistory: [],
+      updatedAt: this.now(),
+    }
     this.set(receipt)
     for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
       let error: string | undefined
       try {
         const res = await send()
-        if (isSuccessStatus(res.status)) {
-          receipt = { ...receipt, status: 'delivered', attempts: attempt, lastError: undefined, updatedAt: this.now() }
+        if (res.ok) {
+          const updatedAt = this.now()
+          receipt = {
+            ...receipt,
+            status: 'delivered',
+            attempts: attempt,
+            attemptHistory: [...receipt.attemptHistory, { attempt, status: 'delivered', updatedAt }],
+            lastError: undefined,
+            updatedAt,
+          }
           this.consecutiveDead.set(channel, 0)
           this.set(receipt)
           return receipt
         }
-        error = `HTTP ${res.status}`
+        error = res.error ?? (res.status === undefined ? 'Delivery failed' : `HTTP ${res.status}`)
       } catch (e) {
         error = e instanceof Error ? e.message : String(e)
       }
-      receipt = { ...receipt, attempts: attempt, lastError: error, updatedAt: this.now() }
+      const updatedAt = this.now()
+      receipt = {
+        ...receipt,
+        attempts: attempt,
+        attemptHistory: [...receipt.attemptHistory, { attempt, status: 'failed', error, updatedAt }],
+        lastError: error,
+        updatedAt,
+      }
       if (attempt < this.maxAttempts) {
         this.set({ ...receipt, status: 'queued' })
         await this.sleep(backoffMs(attempt))

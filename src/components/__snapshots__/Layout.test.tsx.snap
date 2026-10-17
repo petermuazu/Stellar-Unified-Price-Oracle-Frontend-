@@ -233,7 +233,7 @@ exports[`snapshots > default 1`] = `
         Dashboard
       </span>
       <span
-        class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-cyan-500 rounded-b-full"
+        class="absolute top-0 start-1/2 -translate-x-1/2 w-6 h-0.5 bg-cyan-500 rounded-b-full"
       />
     </a>
     <a
@@ -295,12 +295,5 @@ exports[`snapshots > default 1`] = `
       </span>
     </button>
   </nav>
-  <div
-    aria-atomic="true"
-    aria-live="polite"
-    class="sr-only"
-    id="price-announcer"
-    role="status"
-  />
 </div>
 `;

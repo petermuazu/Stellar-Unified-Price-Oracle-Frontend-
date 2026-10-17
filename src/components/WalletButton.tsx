@@ -24,7 +24,7 @@ export function WalletButton(): ReactElement {
           {status === 'connecting' ? t('wallet.connecting') : t('wallet.connect')}
         </button>
         {status === 'error' && error && (
-          <span className="text-xs text-red-500 dark:text-red-400 max-w-[14rem] text-right">
+          <span className="text-xs text-red-500 dark:text-red-400 max-w-[14rem] text-end">
             {errorCode === 'not-installed' ? (
               <a
                 href="https://www.freighter.app/"
@@ -60,7 +60,7 @@ export function WalletButton(): ReactElement {
       {menuOpen && (
         <div
           role="menu"
-          className="absolute right-0 mt-2 w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-50 p-3 text-sm"
+          className="absolute end-0 mt-2 w-64 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg z-50 p-3 text-sm"
         >
           <dl className="space-y-1.5">
             <div className="flex justify-between gap-2">

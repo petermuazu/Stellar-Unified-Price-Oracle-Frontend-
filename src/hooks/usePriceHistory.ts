@@ -3,6 +3,7 @@ import { fetchPriceHistory } from '../api/rest'
 import { registerMemoryProbe } from '../utils/memoryProfiler'
 import type { PriceHistoryEntry, PriceHistoryResponse } from '../types'
 import { SERIES_IDS, timeSeries } from '../storage/timeseries'
+import { estimateStorageUsage, isStorageNearQuota } from '../utils/storagePressure'
 import { idbCache } from './useIndexedDB'
 
 // Cross-session cache TTL for the first page of history, per #321's endpoint
@@ -38,6 +39,7 @@ interface PriceHistoryState {
   loading: boolean
   loadingMore: boolean
   error: Error | null
+  storageNearQuota?: boolean
   hasMore: boolean
   loadMore: () => Promise<void>
   refetch: () => Promise<void>
@@ -56,6 +58,7 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
   const [loading, setLoading] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [storageNearQuota, setStorageNearQuota] = useState(false)
   const [hasMore, setHasMore] = useState(true)
 
   const offsetRef = useRef(0)
@@ -65,6 +68,11 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
   const hasMoreRef = useRef(true)
   const hasFetchedRef = useRef(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  const warnIfNearQuota = useCallback(async () => {
+    const usage = await estimateStorageUsage()
+    if (isStorageNearQuota(usage)) setStorageNearQuota(true)
+  }, [])
 
   // Track page visibility
   const isVisibleRef = useRef(typeof document !== 'undefined' ? !document.hidden : true)
@@ -93,6 +101,8 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
       } else {
         res = await fetchPriceHistory(pair, pageSize, 0, undefined, undefined, controller.signal)
         if (isMountedRef.current && !controller.signal.aborted) {
+          await warnIfNearQuota()
+          if (!isMountedRef.current || controller.signal.aborted) return
           void idbCache.set('history', cacheKey, res)
           // Project onto the durable time-series so long-term history gets
           // retention + rollups rather than living only in a 2-minute cache.
@@ -119,7 +129,7 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
         setLoading(false)
       }
     }
-  }, [pair, pageSize, onError])
+  }, [pair, pageSize, onError, warnIfNearQuota])
 
   // Load more pages (pagination)
   const loadMore = useCallback(async () => {
@@ -141,6 +151,8 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
 
       if (!isMountedRef.current || controller.signal.aborted) return
 
+      await warnIfNearQuota()
+      if (!isMountedRef.current || controller.signal.aborted) return
       void timeSeries.appendMany(SERIES_IDS.priceHistory(pair), res.history)
 
       if (res.history.length === 0) {
@@ -165,7 +177,7 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
         setLoadingMore(false)
       }
     }
-  }, [pair, pageSize, onError])
+  }, [pair, pageSize, onError, warnIfNearQuota])
 
   // Project previously-cached history blobs into the time-series once.
   useEffect(() => {
@@ -232,5 +244,5 @@ export function usePriceHistory(pair: string | null, options: PriceHistoryOption
   historyRef.current = history
   useEffect(() => registerMemoryProbe('chartBuffers', () => historyRef.current.length), [])
 
-  return { history, loading, loadingMore, error, hasMore, loadMore, refetch }
+  return { history, loading, loadingMore, error, storageNearQuota, hasMore, loadMore, refetch }
 }

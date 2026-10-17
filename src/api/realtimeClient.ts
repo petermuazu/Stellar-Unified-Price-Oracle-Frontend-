@@ -45,6 +45,8 @@ export class RealtimeClient {
       protocolUpgradeRequired: active?.protocolUpgradeRequired ?? false,
       isPaused: active?.isPaused ?? false,
       transport: this.transport,
+      lastReconnectCause: active?.lastReconnectCause ?? null,
+      ...(active?.reconnectCauseCounts ? { reconnectCauseCounts: active.reconnectCauseCounts } : {}),
     }
   }
 

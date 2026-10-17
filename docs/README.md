@@ -4,6 +4,11 @@ Welcome to the Stellar Unified Price Oracle API documentation. This directory co
 
 ## 📚 Documentation Files
 
+### [Portfolio analytics](portfolio-analytics.md)
+**User-entered holdings and portfolio exposure** — local-only holdings,
+valuation freshness rules, and API data dependencies for outage and historical
+aggregation previews.
+
 ### [QUICKSTART.md](QUICKSTART.md)
 **Start here!** Get up and running in 5 minutes with code examples for:
 - Installation & setup

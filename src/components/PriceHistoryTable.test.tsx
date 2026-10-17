@@ -33,6 +33,31 @@ describe('PriceHistoryTable', () => {
     expect(screen.getByText('Sources')).toBeInTheDocument()
     expect(screen.getByText('chainlink')).toBeInTheDocument()
     expect(screen.getByText('redstone, band')).toBeInTheDocument()
+    expect(screen.getByText('Source timestamps')).toBeInTheDocument()
+  })
+
+  it('shows contributor timestamps, stale markers, and an explicit API-unavailable state', () => {
+    const timestamp = Date.now()
+    render(
+      <PriceHistoryTable
+        data={[
+          {
+            price: 50000,
+            timestamp,
+            confidence: 0.99,
+            sources: ['chainlink', 'redstone', 'band'],
+            sourceTimestamps: [
+              { source: 'chainlink', timestamp: timestamp - 30_000 },
+              { source: 'redstone', timestamp: timestamp - 90_000 },
+            ],
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText('(stale)')).toBeInTheDocument()
+    expect(screen.getByText('Unavailable from API')).toBeInTheDocument()
+    expect(document.querySelectorAll('time')).toHaveLength(2)
   })
 
   it('renders confidence as a percentage', () => {

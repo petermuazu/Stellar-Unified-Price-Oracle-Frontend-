@@ -19,10 +19,4 @@
     if (fontCss.sheet) enable()
     else fontCss.addEventListener('load', enable, { once: true })
   }
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/sw.js').catch(function () {})
-    })
-  }
 })()

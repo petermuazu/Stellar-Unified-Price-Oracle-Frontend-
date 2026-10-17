@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'
 
 /**
  * Reference-price oracle badge.
@@ -13,39 +13,51 @@ import React from 'react';
 
 export interface ReferenceBenchmarkBadgeProps {
   /** Reference (benchmark) price value, if available. */
-  referencePrice?: number | null;
+  referencePrice?: number | null
   /** Aggregate price value, if available. */
-  aggregatePrice?: number | null;
+  aggregatePrice?: number | null
   /** ISO currency code for both prices. */
-  currency?: string;
+  currency?: string
   /** Optional deviation (aggregate vs reference) as a fraction, e.g. 0.012 = 1.2%. */
-  deviation?: number | null;
+  deviation?: number | null
   /** Sustained-bias alert flag from the deviation tracker. */
-  biasAlert?: boolean;
+  biasAlert?: boolean
   /** Optional bias threshold (fraction) that triggered the alert. */
-  biasThreshold?: number | null;
+  biasThreshold?: number | null
+  /** ISO timestamp supplied by the reference API. */
+  referenceTimestamp?: string | null
+  /** Provider identifier supplied by the reference API. */
+  referenceSource?: string | null
+  /** Whether the read-only benchmark request is in flight. */
+  loading?: boolean
+  /** Benchmark request/contract validation error. */
+  error?: string | null
+  /** Age after which a benchmark observation is labelled stale. Defaults to two minutes. */
+  staleAfterMs?: number
   /** Optional className passthrough. */
-  className?: string;
+  className?: string
 }
+
+const DEFAULT_STALE_AFTER_MS = 120_000
 
 function formatPrice(value: number | null | undefined, currency?: string): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
-    return '—';
+    return '—'
   }
   const formatted = value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 8,
-  });
-  return currency ? `${formatted} ${currency}` : formatted;
+  })
+  return currency ? `${formatted} ${currency}` : formatted
 }
 
 function formatDeviation(deviation: number | null | undefined): string {
   if (deviation === null || deviation === undefined || !Number.isFinite(deviation)) {
-    return '—';
+    return '—'
   }
-  const pct = deviation * 100;
-  const sign = pct > 0 ? '+' : '';
-  return `${sign}${pct.toFixed(2)}%`;
+  const pct = deviation * 100
+  const sign = pct > 0 ? '+' : ''
+  return `${sign}${pct.toFixed(2)}%`
 }
 
 const ReferenceBenchmarkBadge: React.FC<ReferenceBenchmarkBadgeProps> = ({
@@ -55,10 +67,17 @@ const ReferenceBenchmarkBadge: React.FC<ReferenceBenchmarkBadgeProps> = ({
   deviation,
   biasAlert = false,
   biasThreshold,
+  referenceTimestamp,
+  referenceSource,
+  loading = false,
+  error,
+  staleAfterMs = DEFAULT_STALE_AFTER_MS,
   className,
 }) => {
-  const hasReference =
-    referencePrice !== null && referencePrice !== undefined && Number.isFinite(referencePrice);
+  const hasReference = referencePrice !== null && referencePrice !== undefined && Number.isFinite(referencePrice)
+  const observedAt = referenceTimestamp ? Date.parse(referenceTimestamp) : Number.NaN
+  const hasTimestamp = Number.isFinite(observedAt)
+  const isStale = hasTimestamp && Date.now() - observedAt > staleAfterMs
 
   return (
     <div
@@ -95,32 +114,45 @@ const ReferenceBenchmarkBadge: React.FC<ReferenceBenchmarkBadgeProps> = ({
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <span>
           <span style={{ color: '#8a8a8a' }}>Reference: </span>
-          <span data-testid="reference-benchmark-value">
-            {formatPrice(referencePrice, currency)}
-          </span>
+          <span data-testid="reference-benchmark-value">{formatPrice(referencePrice, currency)}</span>
         </span>
         {aggregatePrice !== null && aggregatePrice !== undefined && (
           <span>
             <span style={{ color: '#8a8a8a' }}>Aggregate: </span>
-            <span data-testid="reference-benchmark-aggregate">
-              {formatPrice(aggregatePrice, currency)}
-            </span>
+            <span data-testid="reference-benchmark-aggregate">{formatPrice(aggregatePrice, currency)}</span>
           </span>
         )}
         {deviation !== null && deviation !== undefined && (
           <span>
             <span style={{ color: '#8a8a8a' }}>Deviation: </span>
-            <span data-testid="reference-benchmark-deviation">
-              {formatDeviation(deviation)}
-            </span>
+            <span data-testid="reference-benchmark-deviation">{formatDeviation(deviation)}</span>
           </span>
         )}
       </div>
 
       <div style={{ color: '#8a8a8a', fontSize: 11 }}>
-        Independent benchmark for evaluation only — not a tradable price and excluded from the
-        aggregate.
+        Independent benchmark for evaluation only — not a tradable price and excluded from the aggregate.
       </div>
+
+      {loading && <div role="status">Loading reference benchmark…</div>}
+      {error && (
+        <div role="alert" className="text-red-400 text-[11px]">
+          Reference benchmark unavailable: {error}
+        </div>
+      )}
+      {hasReference && (
+        <div className="text-[11px] text-gray-400" data-testid="reference-benchmark-provenance">
+          <div>Source: {referenceSource || 'Not reported by the API'}</div>
+          <div>
+            Observed: {hasTimestamp ? new Date(observedAt).toLocaleString() : 'Timestamp not reported by the API'}
+          </div>
+          {isStale && (
+            <span className="font-semibold text-amber-400" role="status" aria-label="Stale benchmark observation">
+              Stale benchmark observation
+            </span>
+          )}
+        </div>
+      )}
 
       {biasAlert && (
         <div
@@ -136,11 +168,11 @@ const ReferenceBenchmarkBadge: React.FC<ReferenceBenchmarkBadgeProps> = ({
         </div>
       )}
 
-      {!hasReference && (
-        <div style={{ color: '#8a8a8a', fontSize: 11 }}>Reference source unavailable.</div>
+      {!hasReference && !loading && !error && (
+        <div style={{ color: '#8a8a8a', fontSize: 11 }}>Reference source unavailable for this pair.</div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default ReferenceBenchmarkBadge;
+export default ReferenceBenchmarkBadge

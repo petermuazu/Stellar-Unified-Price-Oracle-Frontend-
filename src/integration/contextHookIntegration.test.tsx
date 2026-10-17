@@ -126,7 +126,10 @@ describe('PriceContext + useAlerts + WebSocket integration', () => {
     messageHandler = null
   })
 
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
 
   it('fires an alert and records history when a live WebSocket update crosses the threshold', async () => {
     const { result } = renderHook(() => useAlerts(), { wrapper: AlertsWrapper })
@@ -162,6 +165,57 @@ describe('PriceContext + useAlerts + WebSocket integration', () => {
       const storedHistory = JSON.parse(localStorage.getItem('alert-history') ?? '[]')
       expect(storedHistory).toHaveLength(1)
     })
+  })
+
+  it('retains an intermediate threshold crossing when the final price is coalesced below it', async () => {
+    let flushFrame: FrameRequestCallback | undefined
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        flushFrame = callback
+        return 1
+      }),
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const { result } = renderHook(() => useAlerts(), { wrapper: AlertsWrapper })
+    act(() => {
+      result.current.addAlert(makeAlertInput({ assetPair: 'BTC/USD', upperThreshold: 55000, triggerOnce: true }))
+      messageHandler?.({
+        type: 'price_update',
+        assetPair: 'BTC/USD',
+        price: 54000,
+        timestamp: 1700000000000,
+        confidence: 0.99,
+        sources: ['chainlink'],
+      })
+    })
+
+    act(() => {
+      messageHandler?.({
+        type: 'price_update',
+        assetPair: 'BTC/USD',
+        price: 56000,
+        timestamp: 1700000001000,
+        confidence: 0.99,
+        sources: ['chainlink'],
+      })
+      messageHandler?.({
+        type: 'price_update',
+        assetPair: 'BTC/USD',
+        price: 54000,
+        timestamp: 1700000002000,
+        confidence: 0.99,
+        sources: ['chainlink'],
+      })
+      flushFrame?.(0)
+    })
+
+    await waitFor(() => {
+      expect(result.current.alertHistory).toHaveLength(1)
+    })
+    expect(result.current.alertHistory[0].price).toBe(56000)
+    expect(result.current.alerts[0].active).toBe(false)
   })
 })
 

@@ -10,15 +10,9 @@
  * percentage of entries where `sources` included this source.
  */
 import { memo, useMemo, useEffect, useCallback, type ReactElement } from 'react'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { PriceHistoryEntry } from '../types'
+import { useIsRtl } from '../hooks/useIsRtl'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +49,7 @@ export const SourceHistoryDrilldown = memo(function SourceHistoryDrilldown({
   history,
   onClose,
 }: SourceHistoryDrilldownProps): ReactElement {
+  const isRtl = useIsRtl()
   // Close on Escape key
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -84,8 +79,7 @@ export const SourceHistoryDrilldown = memo(function SourceHistoryDrilldown({
     const totalPoints = history.length
 
     // Confidence is 0–1 scale
-    const avgConfidence =
-      history.reduce((sum, e) => sum + e.confidence, 0) / totalPoints
+    const avgConfidence = history.reduce((sum, e) => sum + e.confidence, 0) / totalPoints
 
     const timestamps = history.map((e) => e.timestamp)
     const firstSeen = Math.min(...timestamps)
@@ -140,28 +134,15 @@ export const SourceHistoryDrilldown = memo(function SourceHistoryDrilldown({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800 shrink-0">
-          <h2 className="text-lg font-semibold text-gray-100">
-            {sourceLabel} — History Drilldown
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-100">{sourceLabel} — History Drilldown</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close drilldown"
             className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors"
           >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -170,60 +151,37 @@ export const SourceHistoryDrilldown = memo(function SourceHistoryDrilldown({
         <div className="overflow-y-auto flex-1 px-6 py-5 space-y-6">
           {/* Summary stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard
-              label="Total data points"
-              value={stats.totalPoints.toLocaleString()}
-            />
+            <StatCard label="Total data points" value={stats.totalPoints.toLocaleString()} />
             <StatCard
               label="Avg confidence"
-              value={
-                stats.avgConfidence !== null
-                  ? `${(stats.avgConfidence * 100).toFixed(1)}%`
-                  : '—'
-              }
+              value={stats.avgConfidence !== null ? `${(stats.avgConfidence * 100).toFixed(1)}%` : '—'}
             />
-            <StatCard
-              label="First seen"
-              value={
-                stats.firstSeen !== null
-                  ? formatHour(stats.firstSeen)
-                  : '—'
-              }
-            />
-            <StatCard
-              label="Last seen"
-              value={
-                stats.lastSeen !== null
-                  ? formatHour(stats.lastSeen)
-                  : '—'
-              }
-            />
+            <StatCard label="First seen" value={stats.firstSeen !== null ? formatHour(stats.firstSeen) : '—'} />
+            <StatCard label="Last seen" value={stats.lastSeen !== null ? formatHour(stats.lastSeen) : '—'} />
           </div>
 
           {/* Contribution chart */}
           <div>
-            <h3 className="text-sm font-medium text-gray-400 mb-3">
-              Contribution % per hour
-            </h3>
+            <h3 className="text-sm font-medium text-gray-400 mb-3">Contribution % per hour</h3>
             {stats.chartData.length === 0 ? (
-              <p className="text-sm text-gray-500 py-8 text-center">
-                No history data available for this source.
-              </p>
+              <p className="text-sm text-gray-500 py-8 text-center">No history data available for this source.</p>
             ) : (
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
                     data={stats.chartData}
-                    margin={{ top: 4, right: 8, left: -16, bottom: 4 }}
+                    margin={{ top: 4, right: isRtl ? -16 : 8, left: isRtl ? 8 : -16, bottom: 4 }}
                   >
                     <XAxis
                       dataKey="label"
+                      reversed={isRtl}
                       tick={{ fill: '#6b7280', fontSize: 10 }}
                       interval="preserveStartEnd"
                       tickLine={false}
                       axisLine={{ stroke: '#374151' }}
                     />
                     <YAxis
+                      orientation={isRtl ? 'right' : 'left'}
                       domain={[0, 100]}
                       tick={{ fill: '#6b7280', fontSize: 10 }}
                       tickLine={false}

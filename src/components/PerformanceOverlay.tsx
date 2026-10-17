@@ -44,9 +44,7 @@ const HIDDEN_STORAGE_KEY = 'perf_overlay_hidden'
 export const PerformanceOverlay = memo(function PerformanceOverlay() {
   // All hooks are called unconditionally (Rules of Hooks); the DEV guard below
   // only controls rendering, while each effect self-guards its subscriptions.
-  const [visible, setVisible] = useState(
-    () => localStorage.getItem(HIDDEN_STORAGE_KEY) !== '1',
-  )
+  const [visible, setVisible] = useState(() => localStorage.getItem(HIDDEN_STORAGE_KEY) !== '1')
   const [perf, setPerf] = useState<PerformanceSnapshot | null>(null)
   const [renderRows, setRenderRows] = useState<RenderRow[]>([])
   const [pools, setPools] = useState<WorkerPoolDiagnostics[]>([])
@@ -123,7 +121,7 @@ export const PerformanceOverlay = memo(function PerformanceOverlay() {
       <button
         onClick={toggleVisible}
         title="Show performance overlay (Alt+Shift+P)"
-        className="fixed bottom-4 left-4 z-[9999] rounded border border-slate-600 bg-slate-900/90 px-2 py-1 font-mono text-xs text-slate-400 hover:text-slate-100"
+        className="fixed bottom-4 start-4 z-[9999] rounded border border-slate-600 bg-slate-900/90 px-2 py-1 font-mono text-xs text-slate-400 hover:text-slate-100"
         aria-label="Show performance overlay"
       >
         ⚡ perf
@@ -134,15 +132,16 @@ export const PerformanceOverlay = memo(function PerformanceOverlay() {
   const fps = perf?.fps ?? 0
   const longTasks = perf?.longTasks.length ?? 0
   const avgWs = perf?.avgWsProcessingMs ?? null
-  const memoryMb = perf?.memoryUsedBytes !== undefined && perf?.memoryUsedBytes !== null
-    ? Math.round(perf.memoryUsedBytes / (1024 * 1024))
-    : null
+  const memoryMb =
+    perf?.memoryUsedBytes !== undefined && perf?.memoryUsedBytes !== null
+      ? Math.round(perf.memoryUsedBytes / (1024 * 1024))
+      : null
 
   return (
     <aside
       role="complementary"
       aria-label="Performance overlay"
-      className="fixed bottom-4 left-4 z-[9999] min-w-48 rounded-lg border border-slate-700 bg-slate-900/95 p-3 font-mono text-xs shadow-2xl backdrop-blur"
+      className="fixed bottom-4 start-4 z-[9999] min-w-48 rounded-lg border border-slate-700 bg-slate-900/95 p-3 font-mono text-xs shadow-2xl backdrop-blur"
     >
       {/* Header */}
       <div className="mb-2 flex items-center justify-between gap-4">
@@ -162,16 +161,14 @@ export const PerformanceOverlay = memo(function PerformanceOverlay() {
         <span className="text-slate-400">FPS</span>
         <span className={`font-bold ${fpsColour(fps)}`}>
           {fps > 0 ? fps : '—'}
-          {perf?.isJanky && <span className="ml-1 text-red-400">⚠ jank</span>}
+          {perf?.isJanky && <span className="ms-1 text-red-400">⚠ jank</span>}
         </span>
       </div>
 
       {/* Long tasks */}
       <div className="flex items-center justify-between gap-4 border-b border-slate-700 py-2">
         <span className="text-slate-400">Long tasks (60s)</span>
-        <span className={longTasks > 0 ? 'font-bold text-amber-400' : 'text-slate-400'}>
-          {longTasks}
-        </span>
+        <span className={longTasks > 0 ? 'font-bold text-amber-400' : 'text-slate-400'}>{longTasks}</span>
       </div>
 
       {/* WebSocket timing */}
@@ -190,7 +187,7 @@ export const PerformanceOverlay = memo(function PerformanceOverlay() {
         {memoryMb !== null ? (
           <span className={perf?.isMemoryWarning ? 'font-bold text-red-400' : 'font-bold text-emerald-400'}>
             {memoryMb} MB
-            {perf?.isMemoryWarning && <span className="ml-1">⚠</span>}
+            {perf?.isMemoryWarning && <span className="ms-1">⚠</span>}
           </span>
         ) : (
           <span className="text-slate-500">unsupported</span>
@@ -223,7 +220,12 @@ export const PerformanceOverlay = memo(function PerformanceOverlay() {
             <div key={p.label} className="flex items-center justify-between gap-2 py-0.5">
               <span className="text-slate-400">{p.label}</span>
               <span className="text-slate-300">
-                {p.size} {p.lowMemory && <span className="text-amber-400" title="Reduced for low device memory">⚠ low-mem</span>}
+                {p.size}{' '}
+                {p.lowMemory && (
+                  <span className="text-amber-400" title="Reduced for low device memory">
+                    ⚠ low-mem
+                  </span>
+                )}
               </span>
             </div>
           ))}

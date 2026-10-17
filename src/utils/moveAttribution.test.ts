@@ -28,6 +28,9 @@ describe('computeAttribution', () => {
 
     expect(result.assetPair).toBe('BTC/USD')
     expect(result.price).toBe(50000)
+    expect(result.confidence).toBe(0.99)
+    expect(result.previousConfidence).toBeNull()
+    expect(result.sources.every((source) => !source.priceIsObserved)).toBe(true)
     expect(result.delta).toBeNull()
     expect(result.deltaPercent).toBeNull()
 
@@ -48,6 +51,13 @@ describe('computeAttribution', () => {
 
     expect(result.delta).toBeCloseTo(100)
     expect(result.deltaPercent).toBeCloseTo(0.2)
+  })
+
+  it('retains the previous and current confidence scores for a live tick', () => {
+    const result = computeAttribution(makePriceUpdate({ confidence: 0.8 }), {}, 50_000, 0.9)
+
+    expect(result.confidence).toBe(0.8)
+    expect(result.previousConfidence).toBe(0.9)
   })
 
   it('computes negative aggregate delta', () => {
@@ -79,6 +89,7 @@ describe('computeAttribution', () => {
     const redstone = result.sources.find((s) => s.source === 'redstone')!
 
     expect(chainlink.price).toBe(50120)
+    expect(chainlink.priceIsObserved).toBe(true)
     expect(chainlink.prevPrice).toBe(50010)
     expect(chainlink.delta).toBeCloseTo(110)
 
@@ -173,6 +184,8 @@ describe('appendToRingBuffer', () => {
       assetPair: 'BTC/USD',
       timestamp: Date.now(),
       price,
+      confidence: 0.9,
+      previousConfidence: null,
       delta: null,
       deltaPercent: null,
       sources: [],

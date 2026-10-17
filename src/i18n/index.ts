@@ -22,6 +22,12 @@ import fr from './locales/fr'
 import ja from './locales/ja'
 import ar from './locales/ar'
 import he from './locales/he'
+import { createPseudoLocale } from './pseudoLocale'
+
+const expandedEnglish = createPseudoLocale(en as Record<string, unknown>, {
+  mode: 'expand',
+  expansionFactor: 1.5,
+})
 
 // Import type augmentation (no runtime effect, just types)
 import './types'
@@ -108,9 +114,10 @@ i18n
       ja: { translation: ja },
       ar: { translation: ar },
       he: { translation: he },
+      'en-XA': { translation: expandedEnglish },
     },
     fallbackLng: 'en',
-    supportedLngs: [...SUPPORTED_LANGUAGES],
+    supportedLngs: [...SUPPORTED_LANGUAGES, 'en-XA'],
     defaultNS: 'translation',
 
     // Detection order: URL query param → localStorage → browser language

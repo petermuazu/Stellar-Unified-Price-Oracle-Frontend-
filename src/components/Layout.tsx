@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState, type ReactNode, type ReactElement } from 'react'
+import { Suspense, useMemo, useState, useSyncExternalStore, type ReactNode, type ReactElement } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAlerts } from '../hooks/useAlerts'
@@ -13,8 +13,10 @@ import {
   preloadDashboard,
   preloadGovernance,
   preloadLanding,
+  preloadPortfolio,
   preloadSettingsPanel,
 } from '../utils/chunks'
+import { subscribeToInbox, unreadInboxCount } from '../services/inbox'
 import { QueuedRequestsBadge } from './QueuedRequestsBadge'
 import { WalletButton } from './WalletButton'
 
@@ -58,14 +60,13 @@ function BottomTab({
       <span className="relative">
         {icon}
         {badge != null && badge > 0 && (
-          // Use -top-1 on both axes and rtl-badge-flip handles the inline-end flip
-          <span className="absolute -top-1 -right-1 rtl-badge-flip w-2.5 h-2.5 bg-cyan-500 rounded-full border border-white dark:border-gray-950 animate-pulse" />
+          <span className="absolute -top-1 -end-1 w-2.5 h-2.5 bg-cyan-500 rounded-full border border-white dark:border-gray-950 animate-pulse" />
         )}
       </span>
       <span className="text-[10px] font-medium leading-none">{label}</span>
       {isActive && (
-        // left-1/2 + -translate-x-1/2 is symmetric — fine in both directions
-        <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-cyan-500 rounded-b-full" />
+        // start-1/2 + -translate-x-1/2 is symmetric — fine in both directions
+        <span className="absolute top-0 start-1/2 -translate-x-1/2 w-6 h-0.5 bg-cyan-500 rounded-b-full" />
       )}
     </NavLink>
   )
@@ -76,6 +77,7 @@ const PALETTE_SHORTCUT = IS_MAC ? '⌘K' : 'Ctrl K'
 
 export function Layout({ children }: { children: ReactNode }): ReactElement {
   const { activeCount, togglePanel, isPanelOpen } = useAlerts()
+  const inboxUnreadCount = useSyncExternalStore(subscribeToInbox, unreadInboxCount, () => 0)
   const { t } = useTranslation()
   const { open: openPalette } = useCommandPalette()
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -98,16 +100,17 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
   const NAV_ITEMS = [
     { path: '/', label: t('nav.home'), preload: preloadLanding },
     { path: '/dashboard', label: t('nav.dashboard'), preload: preloadDashboard },
+    { path: '/portfolio', label: 'Portfolio' },
     { path: '/api-docs', label: t('nav.apiDocs'), preload: preloadApiDocs },
     { path: '/governance', label: 'Governance', preload: preloadGovernance },
+    { path: '/portfolio', label: 'Portfolio', preload: preloadPortfolio },
     { path: '/webhooks', label: 'Webhooks' },
   ]
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-950 transition-colors duration-200">
       {/*
-       * Skip-to-content: use `focus:start-2` (inline-start logical) instead of
-       * `focus:left-2` so the link appears at the visual start in both LTR and RTL.
+       * Skip-to-content uses logical inline-start positioning in both directions.
        * Tailwind v4 supports `start-*` and `end-*` logical utilities.
        */}
       <a
@@ -151,7 +154,7 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
             </div>
           </div>
 
-          {/* Right actions — in RTL these will naturally appear on the left */}
+          {/* Right actions — in RTL these will naturally appear on the start */}
           <div className="flex items-center gap-2">
             {/* Command palette affordance — the primary surface for power users,
                 so it gets a visible trigger as well as the Ctrl/Cmd+K shortcut. */}
@@ -179,6 +182,24 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
                 requests are queued or the server asked us to pause. */}
             <QueuedRequestsBadge />
             <WalletButton />
+            <NavLink
+              to="/inbox"
+              className={({ isActive }) =>
+                `relative flex min-h-[44px] items-center gap-2 rounded-lg px-3 text-sm transition-colors ${
+                  isActive
+                    ? 'bg-gray-100 text-cyan-700 dark:bg-gray-800 dark:text-cyan-400'
+                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                }`
+              }
+              aria-label={`Inbox${inboxUnreadCount > 0 ? `, ${inboxUnreadCount} unread` : ''}`}
+            >
+              Inbox
+              {inboxUnreadCount > 0 && (
+                <span className="rounded-full bg-cyan-700 px-1.5 py-0.5 text-[10px] font-semibold text-white" aria-hidden="true">
+                  {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                </span>
+              )}
+            </NavLink>
             <button
               onClick={() => setSettingsOpen(true)}
               onMouseEnter={preloadSettingsPanel}
@@ -218,9 +239,7 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
               </svg>
               {activeCount > 0 && (
                 /*
-                 * Badge dot: use `top-1.5 end-1.5` (logical inline-end) instead of
-                 * `top-1.5 right-1.5` so it appears at the visual trailing corner in
-                 * both LTR and RTL without extra CSS overrides.
+                 * Badge dot uses logical inline-end positioning in both directions.
                  */
                 <span className="absolute top-1.5 end-1.5 w-2.5 h-2.5 bg-cyan-500 rounded-full animate-pulse border border-white dark:border-gray-900" />
               )}
@@ -244,7 +263,10 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
           {t('footer.securityLink')}
         </NavLink>
         <span aria-hidden="true"> · </span>
-        <NavLink to="/transparency" className="underline underline-offset-2 hover:text-cyan-500 dark:hover:text-cyan-400">
+        <NavLink
+          to="/transparency"
+          className="underline underline-offset-2 hover:text-cyan-500 dark:hover:text-cyan-400"
+        >
           Transparency
         </NavLink>
         <span aria-hidden="true"> · </span>
@@ -281,6 +303,16 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
         />
 
         <BottomTab
+          to="/portfolio"
+          label="Portfolio"
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M7 14l4-4 4 4 6-7" />
+            </svg>
+          }
+        />
+
+        <BottomTab
           to="/api-docs"
           preload={preloadApiDocs}
           label={t('nav.apiDocs')}
@@ -292,6 +324,29 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
                 strokeWidth={2}
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
+
+            </svg>
+          }
+        />
+
+        <BottomTab
+          to="/inbox"
+          label={inboxUnreadCount > 0 ? `Inbox (${inboxUnreadCount})` : 'Inbox'}
+          badge={inboxUnreadCount}
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18v14H3z M3 13h5l2 3h4l2-3h5" />
+            </svg>
+          }
+        />
+
+        <BottomTab
+          to="/portfolio"
+          preload={preloadPortfolio}
+          label="Portfolio"
+          icon={
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3v18h18M7 14l4-4 4 4 6-7" />
             </svg>
           }
         />
@@ -334,7 +389,6 @@ export function Layout({ children }: { children: ReactNode }): ReactElement {
           <LazyAlertPanel />
         </Suspense>
       )}
-      <div id="price-announcer" role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
     </div>
   )
 }

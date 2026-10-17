@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "sdk:build": "tsup --config src/sdk/tsup.config.ts",
+    "sdk:fixture-server": "node scripts/sdk-fixture-server.mjs",
+    "sdk:fixture-smoke": "node scripts/sdk-fixture-smoke.mjs",
     "sdk:smoke": "node scripts/sdk-smoke.mjs",
+    "docs:webhook-payloads": "node scripts/generate-webhook-payload-docs.mjs",
     "dev": "vite",
     "dev:https": "HTTPS=true vite",
     "setup-https": "node scripts/setup-https.js",

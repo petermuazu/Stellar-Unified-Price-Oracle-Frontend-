@@ -30,7 +30,7 @@
  * - **Long content** — the popup is fixed at `w-56` (14 rem). Content that overflows
  *   wraps naturally; no scroll is added.
  * - **Near viewport edge** — the popup centres above the trigger. When the trigger
- *   is near the left/right edge the popup may overflow; callers should position the
+ *   is near the left/end edge the popup may overflow; callers should position the
  *   trigger away from edges or override with CSS if needed.
  * - **Empty string** — renders a visible but empty popup. Prefer omitting the
  *   `Tooltip` wrapper altogether when there is no content to show.
@@ -89,10 +89,10 @@ export const Tooltip = memo(function Tooltip({ content, children }: TooltipProps
         <span
           id="tooltip-popup"
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs text-gray-200 shadow-xl pointer-events-none"
+          className="absolute bottom-full start-1/2 -translate-x-1/2 mb-2 z-50 w-56 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs text-gray-200 shadow-xl pointer-events-none"
         >
           {content}
-          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-700" />
+          <span className="absolute top-full start-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-700" />
         </span>
       )}
     </span>

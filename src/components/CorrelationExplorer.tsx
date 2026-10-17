@@ -1,14 +1,5 @@
 import { memo, useState, useCallback, useMemo, useRef } from 'react'
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  ReferenceLine,
-} from 'recharts'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine } from 'recharts'
 import {
   pearsonCorrelation,
   rollingCorrelation,
@@ -17,6 +8,7 @@ import {
   formatCorrelationInsight,
 } from '../utils/correlation'
 import type { CorrelationShift } from '../utils/correlation'
+import { useIsRtl } from '../hooks/useIsRtl'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,6 +81,7 @@ export const CorrelationExplorer = memo(function CorrelationExplorer({
   pairs,
   priceHistory,
 }: CorrelationExplorerProps) {
+  const isRtl = useIsRtl()
   // Pair selectors
   const [pairA, setPairA] = useState<string>(pairs[0] ?? '')
   const [pairB, setPairB] = useState<string>(pairs[1] ?? pairs[0] ?? '')
@@ -239,7 +232,7 @@ export const CorrelationExplorer = memo(function CorrelationExplorer({
         </label>
 
         {/* Export buttons */}
-        <div className="ml-auto flex gap-2">
+        <div className="ms-auto flex gap-2">
           <button
             onClick={handleExportCsv}
             className="rounded-md border border-gray-700 bg-gray-800 px-4 py-1.5 text-sm text-gray-200 transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
@@ -266,7 +259,7 @@ export const CorrelationExplorer = memo(function CorrelationExplorer({
           <table className="min-w-full text-center text-xs">
             <thead>
               <tr className="bg-gray-800">
-                <th className="border-b border-gray-700 px-3 py-2 text-left text-gray-500" scope="col">
+                <th className="border-b border-gray-700 px-3 py-2 text-start text-gray-500" scope="col">
                   &nbsp;
                 </th>
                 {pairs.map((p) => (
@@ -285,7 +278,7 @@ export const CorrelationExplorer = memo(function CorrelationExplorer({
                 <tr key={pa} className="border-b border-gray-800 last:border-0">
                   <th
                     scope="row"
-                    className="whitespace-nowrap bg-gray-800 px-3 py-2 text-left font-semibold text-cyan-400"
+                    className="whitespace-nowrap bg-gray-800 px-3 py-2 text-start font-semibold text-cyan-400"
                   >
                     {pa}
                   </th>
@@ -316,16 +309,17 @@ export const CorrelationExplorer = memo(function CorrelationExplorer({
         <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-400">
           Rolling Correlation — {pairA} × {pairB}
           {rollingData.length === 0 && (
-            <span className="ml-2 font-normal normal-case text-gray-500">(insufficient data)</span>
+            <span className="ms-2 font-normal normal-case text-gray-500">(insufficient data)</span>
           )}
         </h3>
 
         <div className="h-56 w-full" aria-label={`Rolling correlation chart for ${pairA} and ${pairB}`}>
           {rollingData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rollingData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+              <LineChart data={rollingData} margin={{ top: 4, right: isRtl ? 0 : 16, bottom: 4, left: isRtl ? 16 : 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis
+                  reversed={isRtl}
                   dataKey="time"
                   tick={{ fill: '#9ca3af', fontSize: 10 }}
                   tickLine={false}
@@ -333,6 +327,7 @@ export const CorrelationExplorer = memo(function CorrelationExplorer({
                   interval="preserveStartEnd"
                 />
                 <YAxis
+                  orientation={isRtl ? 'right' : 'left'}
                   domain={[-1, 1]}
                   ticks={[-1, -0.5, 0, 0.5, 1]}
                   tick={{ fill: '#9ca3af', fontSize: 10 }}

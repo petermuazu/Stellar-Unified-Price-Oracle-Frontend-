@@ -142,6 +142,22 @@ describe('Dashboard', () => {
     expect(screen.getByText('Price Oracle Dashboard')).toBeInTheDocument()
   })
 
+  it('enables market summary export only when matching price data is available', async () => {
+    const { usePriceContext } = await import('../context/PriceContext')
+    vi.mocked(usePriceContext).mockReturnValue(mockCtx({ prices: mockPrices, pricesLoading: false }))
+    renderWithProviders(<Dashboard />, { withAlerts: true })
+
+    expect(screen.getByRole('button', { name: 'Export market summary' })).toBeEnabled()
+    expect(screen.getByText(/source attribution, timestamps, and stale-data flags/i)).toBeInTheDocument()
+  })
+
+  it('announces that market summary export is unavailable without data', () => {
+    renderWithProviders(<Dashboard />, { withAlerts: true })
+
+    expect(screen.getByRole('button', { name: 'Export market summary' })).toBeDisabled()
+    expect(screen.getByText(/unavailable while market data is loading/i)).toBeInTheDocument()
+  })
+
   it('shows loading skeletons when loading and no prices', () => {
     renderWithProviders(<Dashboard />, { withAlerts: true })
     expect(document.querySelectorAll('.skeleton-offscreen').length).toBeGreaterThan(0)

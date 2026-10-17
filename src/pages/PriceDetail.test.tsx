@@ -44,6 +44,7 @@ const defaultHistory = {
   loading: false,
   loadingMore: false,
   error: null,
+  storageNearQuota: false,
   hasMore: false,
   loadMore: vi.fn(),
   refetch: vi.fn(),
@@ -178,6 +179,23 @@ describe('PriceDetail', () => {
 
     renderWithPair()
     expect(screen.getByTestId('price-chart')).toBeInTheDocument()
+  })
+
+  it('warns accessibly when browser storage is near quota', async () => {
+    const { useSwr } = await import('../hooks/useSwr')
+    const { usePriceHistory } = await import('../hooks/usePriceHistory')
+    vi.mocked(useSwr).mockReturnValue({
+      data: mockPriceData,
+      loading: false,
+      error: null,
+      errorMessage: null,
+      isValidating: false,
+      refetch: vi.fn(),
+    })
+    vi.mocked(usePriceHistory).mockReturnValue({ ...defaultHistory, storageNearQuota: true })
+
+    renderWithPair()
+    expect(screen.getByRole('status')).toHaveTextContent('Browser storage is nearing its limit')
   })
 
   // ─── AC: Current price rendering ─────────────────────────────

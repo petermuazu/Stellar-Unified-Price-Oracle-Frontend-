@@ -73,6 +73,18 @@ describe('buildTriggerHistoryEntry', () => {
     expect(entry.triggeredAt).toBe(1000)
     expect(entry.assetPair).toBe('BTC/USD')
   })
+
+  it('preserves exact tick evidence without manufacturing unavailable per-source prices', () => {
+    const evidence = {
+      timestamp: 900,
+      confidence: 0.97,
+      sources: ['chainlink', 'reflector'],
+    }
+    const entry = buildTriggerHistoryEntry(mockAlert, 61000, 1000, undefined, evidence)
+
+    expect(entry.evidence).toEqual(evidence)
+    expect(entry.evidence?.sourcePrices).toBeUndefined()
+  })
 })
 
 describe('buildEscalationHistoryEntry', () => {

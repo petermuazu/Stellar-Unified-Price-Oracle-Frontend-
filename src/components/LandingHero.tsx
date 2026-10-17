@@ -44,7 +44,7 @@ const TopPairCard = memo(function TopPairCard({ price }: TopPairCardProps) {
           </div>
         </div>
       </div>
-      <div className="text-right">
+      <div className="text-end">
         <div className="text-sm font-bold font-mono text-white">${formatPrice(price.price)}</div>
         <div className="text-xs text-cyan-400">
           {(price.confidence * 100).toFixed(0)}% {t('landing.topPairs.confidence')}
@@ -79,8 +79,8 @@ export const LandingHero = memo(function LandingHero({ prices, loading = false, 
     >
       {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl" />
+        <div className="absolute -top-24 -start-24 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+        <div className="absolute -bottom-24 -end-24 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative px-6 py-8 sm:px-10 sm:py-10">

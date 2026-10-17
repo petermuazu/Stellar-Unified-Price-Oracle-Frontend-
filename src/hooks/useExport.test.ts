@@ -10,9 +10,7 @@ const mockPrices: PriceData[] = [
   { assetPair: 'ETH/USD', price: 3000, timestamp: 0, confidence: 0.95, sources: ['redstone', 'band'] },
 ]
 
-function mockBlob(
-  onCreate: (parts: BlobPart[], options: BlobPropertyBag) => void,
-): void {
+function mockBlob(onCreate: (parts: BlobPart[], options: BlobPropertyBag) => void): void {
   class BlobMock {
     readonly type: string
 
@@ -111,6 +109,40 @@ describe('useExport', () => {
       await result.current.exportJSON(mockPrices)
       expect(createObjectURLSpy).toHaveBeenCalled()
       expect(clickSpy).toHaveBeenCalled()
+    })
+
+    describe('exportMarketSummary', () => {
+      it('downloads the current snapshot with timestamps and source attribution', async () => {
+        let capturedContent = ''
+        mockBlob((parts) => {
+          capturedContent = String(parts[0])
+        })
+
+        const { result } = renderHook(() => useExport())
+        await result.current.exportMarketSummary(mockPrices, 5)
+
+        const summary = JSON.parse(capturedContent)
+        expect(summary.schemaVersion).toBe(1)
+        expect(summary.assets).toHaveLength(2)
+        expect(summary.assets[0]).toMatchObject({
+          assetPair: 'BTC/USD',
+          sources: ['chainlink'],
+          stale: true,
+        })
+        expect(summary.assets[0].observedAt).toBe(new Date(0).toISOString())
+        expect(createObjectURLSpy).toHaveBeenCalled()
+        expect(clickSpy).toHaveBeenCalled()
+      })
+
+      it('does not start an export when the shared export rate limit is exhausted', () => {
+        const { result } = renderHook(() => useExport())
+        result.current.exportMarketSummary(mockPrices, 5)
+        result.current.exportMarketSummary(mockPrices, 5)
+        result.current.exportMarketSummary(mockPrices, 5)
+
+        expect(result.current.exportMarketSummary(mockPrices, 5)).toBeUndefined()
+        expect(createObjectURLSpy).not.toHaveBeenCalled()
+      })
     })
 
     it('exports valid JSON with all price data fields', async () => {

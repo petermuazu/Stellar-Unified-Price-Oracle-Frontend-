@@ -19,7 +19,10 @@ function form(overrides?: Partial<AlertFormData>): AlertFormData {
     escalationEnabled: false,
     escalationSteps: [],
     channels: [],
+    notifyOnRecovery: false,
     retestMode: false,
+    expiryDate: '',
+    reviewDate: '',
     ...overrides,
   }
 }

@@ -93,8 +93,7 @@ export function FilterPanel({ availableSources = KNOWN_SOURCES }: Props): ReactE
     [f.sources, availableSources, setParam],
   )
 
-  const isSourceChecked = (src: string) =>
-    f.sources.length === 0 || f.sources.includes(src)
+  const isSourceChecked = (src: string) => f.sources.length === 0 || f.sources.includes(src)
 
   const activeCount = countActiveFilters(f)
 
@@ -173,7 +172,7 @@ export function FilterPanel({ availableSources = KNOWN_SOURCES }: Props): ReactE
                 className="flex-1 accent-cyan-500"
                 aria-label={t('filter.ariaLabels.minConfidence')}
               />
-              <span className="text-xs text-gray-400 w-8 text-right">{f.minConf}%</span>
+              <span className="text-xs text-gray-400 w-8 text-end">{f.minConf}%</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-600 w-5">{t('filter.confidenceMax')}</span>
@@ -189,7 +188,7 @@ export function FilterPanel({ availableSources = KNOWN_SOURCES }: Props): ReactE
                 className="flex-1 accent-cyan-500"
                 aria-label={t('filter.ariaLabels.maxConfidence')}
               />
-              <span className="text-xs text-gray-400 w-8 text-right">{f.maxConf}%</span>
+              <span className="text-xs text-gray-400 w-8 text-end">{f.maxConf}%</span>
             </div>
           </div>
         </div>
@@ -245,17 +244,28 @@ export function FilterPanel({ availableSources = KNOWN_SOURCES }: Props): ReactE
             onClick={() => setParam('sortDir', f.sortDir === 'asc' ? 'desc' : 'asc')}
             title={f.sortDir === 'asc' ? t('filter.sortDirection.ascending') : t('filter.sortDirection.descending')}
             aria-label={t('filter.sortDirection.ariaLabel', {
-              direction: f.sortDir === 'asc' ? t('filter.sortDirection.ascending') : t('filter.sortDirection.descending'),
+              direction:
+                f.sortDir === 'asc' ? t('filter.sortDirection.ascending') : t('filter.sortDirection.descending'),
             })}
             className="p-1.5 border border-gray-700 rounded-lg text-gray-400 hover:text-gray-200 hover:border-gray-600 transition-colors"
           >
             {f.sortDir === 'asc' ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h5m10 8l-4-4m0 0l-4 4m4-4V4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4h13M3 8h9m-9 4h5m10 8l-4-4m0 0l-4 4m4-4V4"
+                />
               </svg>
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h5m10 0l-4 4m0 0l-4-4m4 4V4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4h13M3 8h9m-9 4h5m10 0l-4 4m0 0l-4-4m4 4V4"
+                />
               </svg>
             )}
           </button>

@@ -61,6 +61,12 @@ describe('i18n infrastructure', () => {
     expect(i18n.t('dashboard.title')).toBe('価格オラクルダッシュボード')
   })
 
+  it('provides an expanded English pseudo-locale for layout testing', async () => {
+    await i18n.changeLanguage('en-XA')
+    expect(i18n.language).toBe('en-XA')
+    expect(i18n.t('dashboard.title')).toMatch(/·{2,}/)
+  })
+
   it('falls back to English gracefully for unsupported language', async () => {
     await i18n.changeLanguage('zz') // unsupported code
     expect(i18n.t('nav.dashboard')).toBe(en.nav.dashboard)

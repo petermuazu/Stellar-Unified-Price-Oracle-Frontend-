@@ -8,7 +8,6 @@ import { rateLimitManager, type RateLimitStatus } from '../api/rateLimit'
 import { markStage } from '../perf/startup'
 import { useOutboundQueue } from '../hooks/useOutboundQueue'
 import { offlinePriceStore, type OfflineSnapshot } from '../services/offlinePriceStore'
-import { config } from '../config'
 import { computeAttribution, appendToRingBuffer, type SourcePriceState } from '../utils/moveAttribution'
 import {
   TICK_POLICY,
@@ -18,6 +17,7 @@ import {
   type TickCoalescerStats,
 } from '../utils/tickCoalescer'
 import type { LivePriceEntry, PriceData, MoveAttribution, WsPriceUpdate } from '../types'
+import { usePreferences } from '../preferences/PreferencesContext'
 import { useToast } from './ToastContext'
 
 /**
@@ -175,6 +175,7 @@ const PriceContext = createContext<PriceContextValue | null>(null)
  * has no data (first load while offline).
  */
 export function PriceProvider({ children }: { children: ReactNode }) {
+  const { preferences } = usePreferences()
   const {
     data: prices = [],
     isLoading: pricesLoading,
@@ -184,7 +185,7 @@ export function PriceProvider({ children }: { children: ReactNode }) {
   } = useQuery<PriceData[], Error>({
     queryKey: ['prices'],
     queryFn: () => fetchAllPrices(),
-    refetchInterval: config.refreshInterval,
+    refetchInterval: preferences.refreshInterval,
     staleTime: 5_000,
     retry: 3,
   })
@@ -231,6 +232,7 @@ export function PriceProvider({ children }: { children: ReactNode }) {
    * Per-pair last aggregate price — used to compute the aggregate delta.
    */
   const prevAggPriceRef = useRef<Map<string, number>>(new Map())
+  const prevConfidenceRef = useRef<Map<string, number>>(new Map())
 
   const wsRef = useRef<RealtimeClient | null>(null)
   const requestIdsRef = useRef<Map<string, number>>(new Map())
@@ -250,6 +252,7 @@ export function PriceProvider({ children }: { children: ReactNode }) {
   // and used as the display source when the REST fetch has no data (first offline load).
   const [offlineSnapshot, setOfflineSnapshot] = useState<OfflineSnapshot | null>(null)
   const wasOfflineRef = useRef(false)
+  const wasDocumentHiddenRef = useRef(typeof document !== 'undefined' && document.hidden)
   const { addToast } = useToast()
 
   useEffect(() => {
@@ -286,6 +289,40 @@ export function PriceProvider({ children }: { children: ReactNode }) {
 
     return unsubscribeFromRateLimit
   }, [])
+
+  // Background tabs can have their timers and realtime socket throttled. When
+  // the user returns, fetch an authoritative REST snapshot immediately and
+  // discard only live values that are no newer than that snapshot.
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        wasDocumentHiddenRef.current = true
+        return
+      }
+      if (!wasDocumentHiddenRef.current) return
+      wasDocumentHiddenRef.current = false
+
+      void refetchPrices().then(({ data }) => {
+        if (!data) return
+        const restTimestamps = new Map(data.map((price) => [price.assetPair, price.timestamp]))
+        setLivePrices((current) => {
+          let changed = false
+          const next = new Map(current)
+          for (const [pair, entry] of current) {
+            const restTimestamp = restTimestamps.get(pair)
+            if (restTimestamp !== undefined && entry.data.timestamp <= restTimestamp) {
+              next.delete(pair)
+              changed = true
+            }
+          }
+          return changed ? next : current
+        })
+      })
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [refetchPrices])
 
   // ── REST revalidation ─────────────────────────────────────────────────────
 
@@ -409,6 +446,7 @@ export function PriceProvider({ children }: { children: ReactNode }) {
               timestamp: msg.timestamp,
               confidence: msg.confidence,
               sources: msg.sources,
+              qualityFlags: msg.qualityFlags,
             },
             syncState: 'optimistic',
             flashVersion: (current?.flashVersion ?? 0) + 1,
@@ -463,6 +501,8 @@ export function PriceProvider({ children }: { children: ReactNode }) {
    */
   const handlePriceUpdate = useCallback(
     (msg: WsPriceUpdate) => {
+      recordSubscriptionUpdate(msg.assetPair, Date.now())
+
       // ── Attribution computation (per raw tick) ────────────────────────────
       const sourcePriceState = sourcePriceStateRef.current
       if (!sourcePriceState.has(msg.assetPair)) {
@@ -470,8 +510,10 @@ export function PriceProvider({ children }: { children: ReactNode }) {
       }
       const prevSourcePrices = sourcePriceState.get(msg.assetPair)!
       const prevAggPrice = prevAggPriceRef.current.get(msg.assetPair) ?? null
-      const attribution = computeAttribution(msg, prevSourcePrices, prevAggPrice)
+      const prevConfidence = prevConfidenceRef.current.get(msg.assetPair) ?? null
+      const attribution = computeAttribution(msg, prevSourcePrices, prevAggPrice, prevConfidence)
       prevAggPriceRef.current.set(msg.assetPair, msg.price)
+      prevConfidenceRef.current.set(msg.assetPair, msg.confidence)
 
       const pendingAttributions = pendingAttributionsRef.current
       const buffered = pendingAttributions.get(msg.assetPair)

@@ -114,6 +114,34 @@ const es = {
       'La confianza refleja cuán consistente es el precio entre las fuentes oracle. 100% significa que todas las fuentes coinciden exactamente.',
   },
 
+  metricHelp: {
+    docsTitle: 'Cómo entender las métricas de precios',
+    helpFor: 'Ayuda: {{topic}}',
+    readDocs: 'Leer la guía de métricas',
+    topics: {
+      confidence: {
+        title: 'Confianza',
+        description:
+          'Puntuación de 0 a 1 que indica cuánto coinciden las fuentes oracle disponibles. 0,95 equivale a un 95% de confianza; no es la probabilidad de que el precio sea correcto.',
+      },
+      divergence: {
+        title: 'Divergencia',
+        description:
+          'Diferencia porcentual entre el agregado fuera de la cadena y el último valor del oráculo en cadena. Una diferencia mayor puede indicar retrasos o desacuerdo entre fuentes.',
+      },
+      staleness: {
+        title: 'Actualidad de los datos',
+        description:
+          'Tiempo transcurrido desde que se informó este precio. Los datos antiguos pueden no reflejar el mercado actual; el umbral de actualidad configurado indica cuándo se consideran obsoletos.',
+      },
+      weights: {
+        title: 'Pesos de agregación',
+        description:
+          'Proporción que aporta cada fuente activa al precio ponderado. Los pesos activos suman el 100%; las fuentes excluidas no aportan nada.',
+      },
+    },
+  },
+
   table: {
     ariaLabel: 'Tabla de feeds de precios',
     columns: {
@@ -196,6 +224,7 @@ const es = {
       mustBePositive: 'Debe ser un número positivo',
       upperGreaterThanLower: 'Debe ser mayor que el umbral inferior',
       lowerLessThanUpper: 'Debe ser menor que el umbral superior',
+      invalidDate: 'Introduce una fecha válida',
     },
     conditions: {
       title: 'Condiciones adicionales',
@@ -237,6 +266,13 @@ const es = {
       title: 'Notificar en retest',
       description: 'También se dispara si el precio vuelve a entrar en este nivel superado después de salir de él.',
     },
+    lifecycle: {
+      title: 'Ciclo de vida de la regla',
+      expiryLabel: 'Fecha de vencimiento (opcional)',
+      reviewLabel: 'Recordatorio de revisión (opcional)',
+      description:
+        'El vencimiento desactiva la regla al final de esa fecha local. La revisión solo es un recordatorio.',
+    },
     // ── Alert simulation (#490) ──────────────────────────────────────────
     simulate: {
       title: 'Probar alerta',
@@ -252,6 +288,19 @@ const es = {
         'Elige dónde se entrega esta alerta. Déjalo vacío para usar los canales configurados en tus ajustes de notificación.',
       useGlobal: 'Usar valores globales por defecto',
       noneConfigured: 'No hay canales configurados: configura los canales en Ajustes de notificación primero.',
+      readiness: {
+        title: 'Disponibilidad de canales',
+        remoteNote:
+          'Solo se comprueba la configuración local y el permiso del navegador; no se verifica la entrega remota.',
+        blocked: 'Resuelve los problemas de disponibilidad antes de guardar.',
+        ready: 'Disponible localmente',
+        disabled: 'El canal está desactivado en los ajustes de notificación',
+        missingConfiguration: 'Falta la configuración necesaria del canal',
+        missingSecret: 'Falta el secreto de sesión; vuelve a introducirlo en los ajustes de notificación',
+        permissionRequired: 'No se ha concedido el permiso de notificaciones del navegador',
+        permissionDenied: 'Se denegaron las notificaciones; cambia el permiso en los ajustes del navegador',
+        unsupported: 'Las notificaciones del navegador no están disponibles en este entorno',
+      },
     },
     presets: {
       title: 'Empezar desde una plantilla',
@@ -269,6 +318,24 @@ const es = {
     newBadge: '{{count}} Nueva',
     empty: 'No hay alertas configuradas',
     close: 'Cerrar panel de alertas',
+    delivery: {
+      title: 'Intentos de entrega',
+      empty: 'No hay intentos registrados en esta sesión; el historial anterior no está disponible.',
+      status_queued: 'Reintentando',
+      status_delivered: 'Aceptado',
+      status_failed: 'Fallido',
+      attemptCount: '{{count}} intentos',
+      attemptDelivered: 'Intento {{attempt}} aceptado',
+      attemptFailed: 'Intento {{attempt}} fallido: {{error}}',
+      unknownError: 'Error desconocido',
+    },
+    lifecycle: {
+      title: 'Programación de la regla',
+      expired: 'Vencida',
+      expiresOn: 'Vence {{date}}',
+      reviewDue: 'Revisión pendiente',
+      reviewOn: 'Revisar {{date}}',
+    },
     sections: {
       triggered: 'Activadas',
       active: 'Alertas activas',
@@ -334,6 +401,23 @@ const es = {
     tabs: {
       alerts: 'Alertas',
       history: 'Historial',
+      archived: 'Archivadas',
+    },
+    bulk: {
+      selectRules: 'Seleccionar reglas ({{count}} seleccionadas)',
+      selectAll: 'Seleccionar todas',
+      clearSelection: 'Borrar selección',
+      pause: 'Pausar seleccionadas',
+      archive: 'Archivar seleccionadas',
+      editDates: 'Editar fechas en bloque',
+      applyExpiry: 'Cambiar fecha de vencimiento',
+      applyReview: 'Cambiar recordatorio de revisión',
+      expiryHelp: 'Elige una fecha o déjala vacía para borrar el vencimiento. Usa el final del día local.',
+      reviewHelp: 'Elige una fecha o déjala vacía para borrar el recordatorio.',
+      saveDates: 'Aplicar cambios de fecha',
+      cancel: 'Cancelar',
+      restore: 'Restaurar regla',
+      archivedEmpty: 'No hay reglas archivadas',
     },
     history: {
       empty: 'Aún no se ha disparado ninguna alerta',
@@ -412,13 +496,21 @@ const es = {
 
   pwa: {
     installTitle: 'Instalar Stellar Oracle',
-    installDetail: 'Añade esta app a tu dispositivo para acceso rápido y uso sin conexión.',
+    installDetail: 'Ten los precios de los oráculos a un toque, con la aplicación disponible sin conexión.',
     installAction: 'Instalar',
+    installing: 'Abriendo…',
     installDismiss: 'Ahora no',
+    installError: 'No se pudo abrir la instalación. Puedes instalar la aplicación desde el menú del navegador.',
     updateTitle: 'Actualización disponible',
-    updateDetail: 'Una nueva versión de la app está lista.',
+    updateVersion: 'Versión {{version}}',
+    updateNotes: 'Incluye las últimas mejoras y correcciones.',
     updateAction: 'Recargar',
+    updating: 'Aplicando…',
     updateDismiss: 'Más tarde',
+    offlineReady: 'La aplicación está disponible sin conexión. Los precios en directo requieren conexión.',
+    errorTitle: 'La actualización o el modo sin conexión no están disponibles',
+    errorDetail: 'La aplicación actual sigue disponible en línea; no se aplicó el cambio solicitado.',
+    dismissError: 'Cerrar',
   },
 
   notFound: {
@@ -440,6 +532,8 @@ const es = {
     confidence: '{{value}}% confianza',
     updated: 'Actualizado {{time}}',
     historyError: 'Error al cargar el historial de precios: {{message}}',
+    historyStorageWarning:
+      'El almacenamiento del navegador está casi lleno. El navegador podría eliminar el historial de precios guardado localmente; los precios en vivo no se ven afectados.',
     emptyState: {
       title: 'No hay datos de precio disponibles',
       detail: 'No hay datos de precio disponibles para este par.',
@@ -522,6 +616,7 @@ const es = {
     fields: {
       refreshInterval: 'Intervalo de actualización',
       chartTimeRange: 'Rango de tiempo del gráfico',
+      chartHistoryPageSize: 'Puntos del historial por página',
       staleThreshold: 'Umbral de activo desactualizado',
     },
     accessibility: {

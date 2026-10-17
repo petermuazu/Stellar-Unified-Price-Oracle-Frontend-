@@ -166,6 +166,35 @@ describe('usePriceAnnouncer', () => {
       { timeout: 100 },
     )
   })
+
+  it('announces a cumulative meaningful move once during a burst of small ticks', () => {
+    const { result: announceResult } = renderHook(() => useAnnounce())
+    const listener = vi.fn()
+    announceResult.current.subscribe(listener)
+
+    const initialPrice = {
+      assetPair: 'BTC/USD',
+      price: 100,
+      confidence: 0.95,
+      sources: [],
+      timestamp: Date.now(),
+    } as PriceData
+    const { rerender } = renderHook(({ price }) => usePriceAnnouncer([price], { minPercentageChange: 1 }), {
+      initialProps: { price: initialPrice },
+    })
+
+    for (const price of [100.3, 100.6, 100.9, 101.2, 101.5]) {
+      rerender({ price: { ...initialPrice, price } })
+    }
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('1.2% change'),
+        priority: 'polite',
+      }),
+    )
+  })
 })
 
 describe('useAlertAnnouncer', () => {
@@ -196,7 +225,10 @@ describe('useAlertAnnouncer', () => {
 
     const { rerender } = renderHook(({ alerts: a }) => useAlertAnnouncer(a), { initialProps: { alerts } })
 
-    // Rerender with alert that has fired (fireCount increased)
+    // First observation establishes the current alert state without announcing old events.
+    rerender({
+      alerts: [{ ...alerts[0], fireCount: 0 }],
+    })
     rerender({
       alerts: [{ ...alerts[0], fireCount: 1 }],
     })
@@ -232,7 +264,10 @@ describe('useAlertAnnouncer', () => {
       } as unknown as Alert,
     ]
 
-    renderHook(() => useAlertAnnouncer(alerts))
+    const { rerender } = renderHook(({ values }) => useAlertAnnouncer(values), {
+      initialProps: { values: [{ ...alerts[0], fireCount: 0 }] },
+    })
+    rerender({ values: alerts })
 
     await waitFor(() => {
       expect(listener).toHaveBeenCalledWith(
@@ -372,23 +407,23 @@ describe('Announcement integration', () => {
       ]),
     )
 
-    const { result: _alertResult } = renderHook(() =>
-      useAlertAnnouncer([
-        {
-          id: 'alert-1',
-          assetPair: 'BTC/USD',
-          upperThreshold: 75000,
-          lowerThreshold: null,
-          triggerOnce: false,
-          fireCount: 1,
-          percentageMode: false,
-          percentageThreshold: null,
-          percentageWindow: null,
-          snoozedUntil: null,
-          active: true,
-        } as unknown as Alert,
-      ]),
-    )
+    const alert = {
+      id: 'alert-1',
+      assetPair: 'BTC/USD',
+      upperThreshold: 75000,
+      lowerThreshold: null,
+      triggerOnce: false,
+      fireCount: 0,
+      percentageMode: false,
+      percentageThreshold: null,
+      percentageWindow: null,
+      snoozedUntil: null,
+      active: true,
+    } as unknown as Alert
+    const { rerender: rerenderAlerts } = renderHook(({ value }) => useAlertAnnouncer([value]), {
+      initialProps: { value: alert },
+    })
+    rerenderAlerts({ value: { ...alert, fireCount: 1 } })
 
     await waitFor(() => {
       expect(listener).toHaveBeenCalled()

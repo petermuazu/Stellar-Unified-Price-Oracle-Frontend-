@@ -77,6 +77,13 @@ The policy is implemented in
    Only the resulting _state commit_ is batched to the paint cadence, so the
    attribution ring buffer is not decimated.
 
+7. **Alert evaluation replays unprocessed attribution samples.** It uses the
+   raw prices retained in the bounded attribution ring, rather than only the
+   latest rendered price, so a threshold crossed and exited between paints can
+   still fire. As with attribution history, retention is bounded to
+   `ATTRIBUTION_RING_BUFFER_SIZE`; this is not an unbounded event-delivery
+   guarantee for a tab that remains unable to render for a long period.
+
 ### Why latest-wins is safe here
 
 A price is last-writer-wins state. An intermediate price that was never painted

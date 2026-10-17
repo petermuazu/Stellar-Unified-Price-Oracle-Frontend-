@@ -108,6 +108,23 @@ async function waitForPageReady(page: Page): Promise<void> {
   ])
 }
 
+// ── Price chart palette and per-source overlays ─────────────────────────────
+
+for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+  test(`price chart ${theme} theme baseline with source coverage`, async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop)
+    await page.goto(`/e2e/fixtures/price-chart-harness.html?theme=${theme}`)
+    await page.getByRole('heading', { name: 'BTC/USD Price History' }).waitFor()
+    await page.getByRole('button', { name: 'Toggle per-source coverage overlay' }).click()
+    await page.getByRole('img', { name: /Per-source observed coverage/ }).waitFor()
+
+    const screenshot = await stableScreenshot(page)
+    expect(screenshot).toMatchSnapshot(`price-chart-${theme}-desktop.png`, {
+      maxDiffPixelRatio: 0.02,
+    })
+  })
+}
+
 // ── Dashboard — viewport-specific screenshots ───────────────────────────────
 
 for (const [name, size] of Object.entries(VIEWPORTS) as [
@@ -274,6 +291,36 @@ test.describe('API Docs page', () => {
 
     const screenshot = await stableScreenshot(page)
     expect(screenshot).toMatchSnapshot('api-docs-light-desktop.png', {
+      maxDiffPixelRatio: 0.02,
+    })
+  })
+})
+
+// ── Localization layout regressions ─────────────────────────────────────────
+
+test.describe('Localization layout — desktop', () => {
+  test('Arabic RTL baseline', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop)
+    await page.goto('/dashboard?lang=ar')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
+    await page.getByRole('main').waitFor({ timeout: 10_000 })
+
+    const screenshot = await stableScreenshot(page)
+    expect(screenshot).toMatchSnapshot('dashboard-ar-rtl-desktop.png', {
+      maxDiffPixelRatio: 0.02,
+    })
+  })
+
+  test('expanded pseudo-locale baseline', async ({ page }) => {
+    await page.setViewportSize(VIEWPORTS.desktop)
+    await page.goto('/dashboard?lang=en-XA')
+    await page.waitForLoadState('networkidle')
+    await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('··')
+
+    const screenshot = await stableScreenshot(page)
+    expect(screenshot).toMatchSnapshot('dashboard-en-xa-expanded-desktop.png', {
       maxDiffPixelRatio: 0.02,
     })
   })

@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import fs from 'fs'
 import path from 'path'
+import { execFileSync } from 'node:child_process'
 import { defineConfig, loadEnv, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -85,6 +86,35 @@ function buildProxyConfig(env: Record<string, string>): ProxyConfig {
   return proxyConfig
 }
 
+function resolveBuildId(env: Record<string, string>): string {
+  const configured = env.VITE_BUILD_COMMIT || env.VERCEL_GIT_COMMIT_SHA || env.GITHUB_SHA
+  if (configured) return configured.slice(0, 12)
+
+  try {
+    return execFileSync('git', ['rev-parse', '--short=12', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return env.VITE_APP_VERSION || 'development'
+  }
+}
+
+function resolveAppVersion(env: Record<string, string>): string {
+  if (env.VITE_APP_VERSION) return env.VITE_APP_VERSION
+
+  const packageJson: unknown = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8'))
+  if (
+    typeof packageJson !== 'object' ||
+    packageJson === null ||
+    !('version' in packageJson) ||
+    typeof packageJson.version !== 'string'
+  ) {
+    throw new Error('package.json must provide a string version for the PWA update banner')
+  }
+  return packageJson.version
+}
+
 // Hostnames that are always a local/dev default, never a real third-party
 // origin worth a preconnect/dns-prefetch hint (#509). Guards against emitting
 // hints for `http://localhost:3000`-style fallbacks when VITE_API_URL /
@@ -105,6 +135,8 @@ function isKnownProductionOrigin(rawUrl: string | undefined): string | null {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const proxyConfig = buildProxyConfig(env)
+  const buildId = resolveBuildId(env)
+  const appVersion = resolveAppVersion(env)
 
   const httpsOptions = resolveHttps()
 
@@ -124,6 +156,10 @@ export default defineConfig(({ mode }) => {
     .join('\n    ')
 
   return {
+    define: {
+      __APP_BUILD_ID__: JSON.stringify(buildId),
+      __APP_VERSION__: JSON.stringify(appVersion),
+    },
     plugins: [
       react(),
       tailwindcss(),

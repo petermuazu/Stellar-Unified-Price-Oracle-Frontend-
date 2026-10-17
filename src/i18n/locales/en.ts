@@ -118,6 +118,34 @@ const en = {
       'Confidence reflects how consistent the price is across oracle sources. 100% means all sources agree exactly.',
   },
 
+  metricHelp: {
+    docsTitle: 'Understanding price metrics',
+    helpFor: 'Help: {{topic}}',
+    readDocs: 'Read the metric guide',
+    topics: {
+      confidence: {
+        title: 'Confidence',
+        description:
+          'A score from 0 to 1 describing how strongly the available oracle sources agree. 0.95 is 95% confidence; it is not a probability that the price is correct.',
+      },
+      divergence: {
+        title: 'Divergence',
+        description:
+          'The percentage difference between the off-chain aggregate and the latest on-chain oracle value. Larger differences can indicate delayed publication or a source disagreement.',
+      },
+      staleness: {
+        title: 'Data freshness',
+        description:
+          'How long ago this price was reported. Older data may no longer reflect current market conditions; the configured freshness threshold marks when it is stale.',
+      },
+      weights: {
+        title: 'Aggregation weights',
+        description:
+          'The share each active oracle source contributes to a weighted aggregate. Active weights add up to 100%; excluded sources contribute nothing.',
+      },
+    },
+  },
+
   // ── PriceTableView ────────────────────────────────────────────────────────
   table: {
     ariaLabel: 'Price feeds table',
@@ -206,6 +234,7 @@ const en = {
       mustBePositive: 'Must be a positive number',
       upperGreaterThanLower: 'Must be greater than lower threshold',
       lowerLessThanUpper: 'Must be less than upper threshold',
+      invalidDate: 'Enter a valid date',
     },
     // ── Compound AND/OR condition builder (#485) ──────────────────────────
     conditions: {
@@ -249,6 +278,10 @@ const en = {
       title: 'Notify on retest',
       description: 'Also fire if the price re-enters this breached level after it exits.',
     },
+    recovery: {
+      title: 'Notify when condition clears',
+      description: 'Send a recovery notice through the same enabled channels when this rule stops matching.',
+    },
     // ── Alert simulation (#490) ──────────────────────────────────────────
     simulate: {
       title: 'Test alert',
@@ -264,6 +297,18 @@ const en = {
         'Choose where this alert is delivered. Leave empty to use the channels configured in your notification settings.',
       useGlobal: 'Use global defaults',
       noneConfigured: 'No channels configured — set up channels in Notification Settings first.',
+      readiness: {
+        title: 'Channel readiness',
+        remoteNote: 'Checks verify local settings and browser permission only; remote delivery is not probed.',
+        blocked: 'Resolve the channel readiness issues before saving.',
+        ready: 'Ready locally',
+        disabled: 'Channel is disabled in notification settings',
+        missingConfiguration: 'Required channel settings are missing',
+        missingSecret: 'Session-only secret is missing; re-enter it in notification settings',
+        permissionRequired: 'Browser notification permission is not granted',
+        permissionDenied: 'Browser notification permission was denied; change it in browser settings',
+        unsupported: 'Browser notifications are unavailable in this environment',
+      },
     },
     // ── Preset library (#486) ──────────────────────────────────────────────
     presets: {
@@ -283,6 +328,24 @@ const en = {
     newBadge: '{{count}} New',
     empty: 'No alerts set yet',
     close: 'Close alert panel',
+    delivery: {
+      title: 'Delivery attempts',
+      empty: 'No attempts recorded this session; earlier history is unavailable.',
+      status_queued: 'Retrying',
+      status_delivered: 'Accepted',
+      status_failed: 'Failed',
+      attemptCount: '{{count}} attempts',
+      attemptDelivered: 'Attempt {{attempt}} accepted',
+      attemptFailed: 'Attempt {{attempt}} failed: {{error}}',
+      unknownError: 'Unknown error',
+    },
+    lifecycle: {
+      title: 'Rule schedule',
+      expired: 'Expired',
+      expiresOn: 'Expires {{date}}',
+      reviewDue: 'Review due',
+      reviewOn: 'Review {{date}}',
+    },
     sections: {
       triggered: 'Triggered',
       active: 'Active Alerts',
@@ -353,6 +416,23 @@ const en = {
     tabs: {
       alerts: 'Alerts',
       history: 'History',
+      archived: 'Archived',
+    },
+    bulk: {
+      selectRules: 'Select rules ({{count}} selected)',
+      selectAll: 'Select all',
+      clearSelection: 'Clear selection',
+      pause: 'Pause selected',
+      archive: 'Archive selected',
+      editDates: 'Bulk edit dates',
+      applyExpiry: 'Change expiry date',
+      applyReview: 'Change review reminder',
+      expiryHelp: 'Choose a date, or leave blank to clear expiry. Expiry uses local end-of-day.',
+      reviewHelp: 'Choose a date, or leave blank to clear the reminder.',
+      saveDates: 'Apply date changes',
+      cancel: 'Cancel',
+      restore: 'Restore rule',
+      archivedEmpty: 'No archived rules',
     },
     history: {
       empty: 'No alerts have fired yet',
@@ -365,6 +445,35 @@ const en = {
       count_one: '{{count}} fired alert',
       count_other: '{{count}} fired alerts',
       priceAt: 'Price: ${{price}}',
+      tickEvidence: 'Show exact tick evidence',
+      tickTime: 'Tick time',
+      tickConfidence: 'Confidence',
+      tickSources: 'Contributing sources',
+      sourcePrices: 'Per-source tick prices',
+      tickUnavailable: 'Not provided by the price feed',
+      evaluationTimeline: 'Rule evaluation timeline ({{count}})',
+      evaluationTimelineLabel: 'Recent rule evaluations',
+      noEvaluations: 'No evaluation events yet. Waiting for a rule check.',
+      conditionResult: '{{field}} {{operator}} {{expected}}; observed {{actual}} — {{result}}',
+      matched: 'matched',
+      notMatched: 'not matched',
+      fields: {
+        price: 'Price',
+        percentageChange: 'Percentage change',
+        schedule: 'Schedule',
+      },
+      evaluationReasons: {
+        inactive: 'Rule is inactive',
+        snoozed: 'Rule is snoozed',
+        priceUnavailable: 'No current price tick was available',
+        stalePrice: 'Price tick is stale; waiting for fresh data',
+        baselineReset: 'Percentage baseline was initialized; this tick was not evaluated',
+        cooldown: 'Condition matched; waiting for cooldown to expire',
+        conditionNotMet: 'Conditions were not satisfied',
+        conditionMatched: 'Conditions were satisfied',
+        thresholdCleared: 'Threshold condition cleared',
+        notAvailable: 'Unavailable',
+      },
     },
     // ── Escalation progress (#487) ────────────────────────────────────────
     escalation: {
@@ -436,13 +545,21 @@ const en = {
   // ── PWA install / update prompts (#361) ───────────────────────────────────
   pwa: {
     installTitle: 'Install Stellar Oracle',
-    installDetail: 'Add this app to your device for quick access and offline support.',
+    installDetail: 'Keep live oracle prices one tap away, with the app shell available offline.',
     installAction: 'Install',
+    installing: 'Opening…',
     installDismiss: 'Not now',
+    installError: 'The install prompt could not be opened. You can install this app from your browser menu.',
     updateTitle: 'Update available',
-    updateDetail: 'A new version of the app is ready.',
-    updateAction: 'Reload',
+    updateVersion: 'Version {{version}}',
+    updateNotes: 'Includes the latest fixes and improvements.',
+    updateAction: 'Reload to update',
+    updating: 'Applying…',
     updateDismiss: 'Later',
+    offlineReady: 'The app shell is cached for offline access. Live prices still need a connection.',
+    errorTitle: 'Offline support or update is unavailable',
+    errorDetail: 'The current app remains available online; the requested service worker change was not applied.',
+    dismissError: 'Dismiss',
   },
 
   // ── NotFound page ─────────────────────────────────────────────────────────
@@ -466,6 +583,8 @@ const en = {
     confidence: '{{value}}% confidence',
     updated: 'Updated {{time}}',
     historyError: 'Failed to load price history: {{message}}',
+    historyStorageWarning:
+      'Browser storage is nearing its limit. The browser may remove locally saved price history; live prices are unaffected.',
     emptyState: {
       title: 'No price data available',
       detail: 'No price data available for this pair.',
@@ -551,6 +670,7 @@ const en = {
     fields: {
       refreshInterval: 'Refresh Interval',
       chartTimeRange: 'Chart Time Range',
+      chartHistoryPageSize: 'Chart History Points per Page',
       staleThreshold: 'Stale Asset Threshold',
     },
     accessibility: {

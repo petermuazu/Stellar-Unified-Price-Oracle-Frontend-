@@ -56,6 +56,7 @@ export function priceDataToCsvRows(
     timestamp: (p) => isoTs(p.timestamp),
     confidence: (p) => p.confidence,
     sources: (p) => p.sources.join(';'),
+    sourceTickProvenanceUrl: (p) => p.sourceTickProvenanceUrl ?? '',
   }
   const rows = prices.map((p) =>
     Object.fromEntries(headers.map((h) => [h, values[h](p)])),
@@ -468,6 +469,7 @@ export function priceDataToXlsx(prices: PriceData[], columns?: string[]): Uint8A
     timestamp: (p) => isoTs(p.timestamp),
     confidence: (p) => p.confidence,
     sources: (p) => p.sources.join(';'),
+    sourceTickProvenanceUrl: (p) => p.sourceTickProvenanceUrl ?? '',
   }
   const rows = prices.map((p) =>
     Object.fromEntries(keys.map((k, i) => [headers[i], values[k](p)])),

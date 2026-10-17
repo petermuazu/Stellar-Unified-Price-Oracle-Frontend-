@@ -1,8 +1,9 @@
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useSwr } from '../hooks/useSwr'
 import { usePriceHistory } from '../hooks/usePriceHistory'
+import { useReferenceDeviation } from '../hooks/useReferenceDeviation'
 import { fetchPrice } from '../api/rest'
 import { PriceDetailSkeleton } from '../components/PriceDetailSkeleton'
 import { CsvImportZone } from '../components/CsvImportZone'
@@ -13,8 +14,13 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { VisibleSuspense } from '../components/VisibleSuspense'
 import { MultiPairOverlayChart } from '../components/MultiPairOverlayChart'
 import { MoveAttributionPanel } from '../components/MoveAttributionPanel'
+import ReferenceBenchmarkBadge from '../components/ReferenceBenchmarkBadge'
+import { PriceQualityDisclosure } from '../components/PriceQualityDisclosure'
 import { AnomalyBanner } from '../components/AnomalyBanner'
 import { ConfidenceDeviationChart } from '../components/ConfidenceDeviationChart'
+import { PairMetadataPanel } from '../components/PairMetadataPanel'
+import { FeedSymbolDiagnostics } from '../components/FeedSymbolDiagnostics'
+import { ProviderPrecisionComparison } from '../components/ProviderPrecisionComparison'
 import { formatPrice, timeAgo, formatTimestamp } from '../utils/format'
 import { SOURCE_COLORS, getConfidenceColor } from '../utils/sourceColors'
 import { LazyPriceChart, LazyPriceHistoryTable, LazyPriceProofPanel } from '../utils/chunks'
@@ -22,6 +28,7 @@ import { isValidAssetPair, VALID_PAIRS } from '../types'
 import { usePreferences } from '../preferences/PreferencesContext'
 import { usePriceContext } from '../context/PriceContext'
 import { getStellarAssetForPair, shortenAccount } from '../lib/stellarAssets'
+import { CircuitBreakerStatus } from '../components/CircuitBreakerStatus'
 import type { CsvRow } from '../components/CsvImportZone'
 import type { ExportRow } from '../components/MultiPairOverlayChart'
 
@@ -129,16 +136,25 @@ export function PriceDetail() {
     loadingMore,
     hasMore,
     error: historyError,
+    storageNearQuota,
     loadMore,
-  } = usePriceHistory(isInvalidPair || !decodedPair ? null : decodedPair, { pageSize: 100 })
+  } = usePriceHistory(isInvalidPair || !decodedPair ? null : decodedPair, {
+    pageSize: preferences.chartHistoryPageSize,
+    refreshInterval: preferences.refreshInterval,
+  })
 
   // Benchmark pair history — fetched only when a benchmark pair is selected
   const { history: benchmarkHistory, loading: benchmarkHistoryLoading } = usePriceHistory(benchmarkPair, {
-    pageSize: 100,
+    pageSize: preferences.chartHistoryPageSize,
+    refreshInterval: preferences.refreshInterval,
   })
 
   const loading = priceLoading || (historyLoading && history.length === 0)
   const showEmptyState = !loading && !priceError && !price
+  const currentSourceRange = getObservedSourceRange(
+    (attributionHistory.get(decodedPair) ?? []).slice(-1)[0],
+    price?.timestamp ?? Number.POSITIVE_INFINITY,
+  )
 
   return (
     // The whole page is built from dark cards and dark-only text colours, so it
@@ -151,11 +167,19 @@ export function PriceDetail() {
         className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 mb-6 transition-colors"
         aria-label={t('priceDetail.backAriaLabel')}
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <svg
+          className="rtl-icon-mirror w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
         {t('priceDetail.back')}
       </button>
+
+      {!isInvalidPair && decodedPair && <CircuitBreakerStatus pair={decodedPair} />}
 
       {isInvalidPair ? (
         <div className="p-4 bg-red-900/30 border border-red-800 rounded-xl text-sm text-red-400" role="alert">
@@ -176,6 +200,9 @@ export function PriceDetail() {
               {t('priceDetail.live')}
             </span>
           </div>
+
+          <PairMetadataPanel pair={price.assetPair} metadata={price.pairMetadata} />
+          <FeedSymbolDiagnostics pair={price.assetPair} feedSymbols={price.pairMetadata?.feedSymbols} />
 
           {/* Tabs — Overview (off-chain aggregated feed) vs Proof (on-chain verification) */}
           <div className="flex border-b border-gray-800 mb-6" role="tablist" aria-label="Price detail sections">
@@ -222,6 +249,7 @@ export function PriceDetail() {
                   {t('priceDetail.sections.currentPrice')}
                 </p>
                 <p className="text-5xl font-bold font-mono text-gray-100 mb-4">${formatPrice(price.price)}</p>
+                <ObservedSourceRange range={currentSourceRange} />
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-400">{t('priceDetail.updated', { time: timeAgo(price.timestamp) })}</span>
                   <span
@@ -231,6 +259,11 @@ export function PriceDetail() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">{formatTimestamp(price.timestamp)}</p>
+                <SourceTickProvenanceLink url={price.sourceTickProvenanceUrl} />
+              </div>
+
+              <div className="mb-6">
+                <PriceQualityDisclosure flags={price.qualityFlags} />
               </div>
 
               {/* Sources */}
@@ -250,12 +283,46 @@ export function PriceDetail() {
                 </div>
               </div>
 
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+                <h2 className="text-xs text-gray-400 uppercase tracking-wider mb-3">
+                  Normalized provider price precision
+                </h2>
+                <ProviderPrecisionComparison
+                  pair={price.assetPair}
+                  pairMetadata={price.pairMetadata}
+                  sourcePrices={price.sourcePrices}
+                  sourcePriceDecimals={price.sourcePriceDecimals}
+                  timestamp={price.timestamp}
+                />
+              </div>
+
               {/* Move attribution — rendered whenever WS attribution data is available */}
               {(() => {
                 const pairHistory = attributionHistory.get(decodedPair) ?? []
                 const latest = pairHistory[pairHistory.length - 1]
-                return latest ? <MoveAttributionPanel latest={latest} history={pairHistory} /> : null
+                const previous = pairHistory[pairHistory.length - 2]
+                return latest ? (
+                  <>
+                    <MoveAttributionPanel latest={latest} history={pairHistory} />
+                    <ConfidenceChangeExplanation latest={latest} previous={previous} />
+                  </>
+                ) : (
+                  <section className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
+                    <h2 className="text-xs text-gray-400 uppercase tracking-wider mb-3">Confidence change context</h2>
+                    <p className="text-sm text-gray-400" role="status">
+                      Waiting for live tick data to compare confidence inputs.
+                    </p>
+                  </section>
+                )
               })()}
+
+              <PairMovementEffectsPanel
+                pair={price.assetPair}
+                history={history}
+                loading={historyLoading}
+                error={historyError}
+                staleThresholdMinutes={preferences.staleThresholdMinutes}
+              />
 
               {/* Stellar asset — resolved on-chain via @stellar/stellar-sdk */}
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
@@ -266,6 +333,16 @@ export function PriceDetail() {
               {/* Benchmark comparison section */}
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-6">
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Benchmark comparison</p>
+                <ReferenceBenchmarkBadge
+                  className="mb-4 text-gray-300"
+                  referencePrice={reference.latestReference}
+                  aggregatePrice={price.price}
+                  deviation={reference.series[reference.series.length - 1]?.deviation}
+                  referenceTimestamp={reference.latestReferencePoint?.timestamp}
+                  referenceSource={reference.latestReferencePoint?.source}
+                  loading={reference.loading}
+                  error={reference.error?.message}
+                />
                 <div className="flex flex-wrap items-center gap-4 mb-4">
                   {/* Benchmark pair picker */}
                   <div className="flex items-center gap-2">
@@ -305,39 +382,67 @@ export function PriceDetail() {
 
                 {/* Multi-pair overlay chart shown when a benchmark is selected */}
                 {benchmarkPair !== null &&
-                  (benchmarkHistoryLoading && benchmarkHistory.length === 0 ? (
+                  (historyError !== null && history.length === 0 ? (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-red-800 bg-red-900/30 p-4 text-sm text-red-300"
+                    >
+                      Price history could not be loaded: {historyError.message}
+                    </div>
+                  ) : benchmarkHistoryLoading && benchmarkHistory.length === 0 ? (
                     <div
                       className="h-80 rounded-lg bg-gray-800/60 animate-pulse"
                       role="status"
                       aria-label="Loading benchmark chart"
                     />
+                  ) : benchmarkHistoryError !== null && benchmarkHistory.length === 0 ? (
+                    <div
+                      role="alert"
+                      className="rounded-lg border border-red-800 bg-red-900/30 p-4 text-sm text-red-300"
+                    >
+                      Benchmark history could not be loaded: {benchmarkHistoryError.message}
+                    </div>
                   ) : (
-                    <MultiPairOverlayChart
-                      pairs={[decodedPair, benchmarkPair]}
-                      history={{
-                        [decodedPair]: history,
-                        [benchmarkPair]: benchmarkHistory,
-                      }}
-                      benchmarkPair={benchmarkPair}
-                      normalizedMode={normalizedMode}
-                      onExport={(rows: ExportRow[]) => {
-                        // Build CSV and trigger download
-                        if (rows.length === 0) return
-                        const pairsInExport = Object.keys(rows[0]).filter((k) => k !== 'timestamp')
-                        const header = ['timestamp', ...pairsInExport].join(',')
-                        const lines = rows.map((row) =>
-                          [row.timestamp, ...pairsInExport.map((p) => row[p] ?? '')].join(','),
-                        )
-                        const csv = [header, ...lines].join('\n')
-                        const blob = new Blob([csv], { type: 'text/csv' })
-                        const url = URL.createObjectURL(blob)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `benchmark_${decodedPair.replace('/', '-')}_vs_${benchmarkPair.replace('/', '-')}.csv`
-                        a.click()
-                        URL.revokeObjectURL(url)
-                      }}
-                    />
+                    <>
+                      {historyError !== null && history.length > 0 && (
+                        <p role="status" className="mb-3 text-sm text-amber-300">
+                          Could not refresh {decodedPair} history. Showing previously loaded observations; they may be
+                          stale.
+                        </p>
+                      )}
+                      {benchmarkHistoryError !== null && (
+                        <p role="status" className="mb-3 text-sm text-amber-300">
+                          Could not refresh benchmark history. Showing previously loaded observations; they may be
+                          stale.
+                        </p>
+                      )}
+                      <MultiPairOverlayChart
+                        pairs={[decodedPair, benchmarkPair]}
+                        history={{
+                          [decodedPair]: history,
+                          [benchmarkPair]: benchmarkHistory,
+                        }}
+                        benchmarkPair={benchmarkPair}
+                        normalizedMode={normalizedMode}
+                        onExport={(rows: ExportRow[]) => {
+                          // Build CSV and trigger download
+                          if (rows.length === 0) return
+                          const pairsInExport = Object.keys(rows[0]).filter((k) => k !== 'timestamp')
+                          const header = ['timestamp', ...pairsInExport].join(',')
+                          const lines = rows.map((row) =>
+                            [row.timestamp, ...pairsInExport.map((p) => row[p] ?? '')].join(','),
+                          )
+                          const csv = [header, ...lines].join('\n')
+                          const blob = new Blob([csv], { type: 'text/csv' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `benchmark_${decodedPair.replace('/', '-')}_vs_${benchmarkPair.replace('/', '-')}.csv`
+                          a.click()
+                          URL.revokeObjectURL(url)
+                        }}
+                      />
+                    </>
                   ))}
 
                 {benchmarkPair === null && (
@@ -364,6 +469,15 @@ export function PriceDetail() {
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-4">
                   {t('priceDetail.sections.priceHistory')}
                 </p>
+                {storageNearQuota && (
+                  <p
+                    className="mb-4 rounded-lg border border-amber-700/60 bg-amber-900/20 px-4 py-3 text-sm text-amber-200"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {t('priceDetail.historyStorageWarning')}
+                  </p>
+                )}
                 {historyError ? (
                   <div className="p-4 bg-red-900/30 border border-red-800 rounded-lg text-sm text-red-400" role="alert">
                     {t('priceDetail.historyError', { message: historyError.message })}
@@ -397,6 +511,7 @@ export function PriceDetail() {
                       <LazyPriceChart
                         data={history}
                         pair={decodedPair}
+                        annotations={qualityAnnotations}
                         loading={historyLoading && history.length === 0}
                         loadingMore={loadingMore}
                         hasMore={hasMore}

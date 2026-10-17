@@ -18,7 +18,8 @@
  * operation belongs on the server, not in the browser.
  *
  * What lives here today is deliberately mundane: alert thresholds, notification
- * routing config, an analytics opt-out flag, and the theme choice.
+ * routing config, an analytics opt-out flag, and the theme choice. Portfolio
+ * holdings and snapshots are kept in IndexedDB, not plain-text localStorage.
  *
  * ## Why route through this module
  *
@@ -45,6 +46,8 @@ export const STORAGE_KEYS = {
   alerts: 'price-alerts',
   /** Log of fired alerts, capped to the most recent entries (#309). */
   alertHistory: 'alert-history',
+  /** Read/unread state and notices in the unified inbox; bounded to 250 items. */
+  inbox: 'supo:inbox',
   /** Notification routing config. Never includes the webhook secret — see the policy above. */
   notificationChannels: 'notification-channels',
   /** Developer webhook endpoints (signing secrets remain session-only). */
@@ -57,6 +60,10 @@ export const STORAGE_KEYS = {
   featureFlagBucket: 'feature-flag-bucket',
   /** Ids of alert health flags (#493) the user has dismissed. No PII. */
   alertHealthDismissed: 'alert-health-dismissed',
+  /** Timestamp until which the PWA install prompt is snoozed. No PII. */
+  pwaInstallDismissed: 'pwa-install-dismissed-until',
+  /** Timestamp until which the PWA update banner is snoozed. No PII. */
+  pwaUpdateDismissed: 'pwa-update-dismissed-until',
   /** Alert sound preferences (#308): enabled flag + 0–1 volume. No PII. */
   soundPreferences: 'sound-preferences',
   /** Recently-used UI language codes, newest first (#373). No PII. */
@@ -69,6 +76,8 @@ export const STORAGE_KEYS = {
   moderationReports: 'moderation-reports',
   /** Dated transparency report snapshots (#700), keyed by period. Aggregates only. */
   transparencyArchive: 'transparency-archive',
+  /** User-entered local-only portfolio positions; no account sync or PII. */
+  portfolioHoldings: 'portfolio-holdings',
 } as const
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]
@@ -300,6 +309,8 @@ function formatBytes(bytes: number): string {
  * | stellar-oracle-theme   | 'dark' or 'light'. No PII.                                        |
  * | feature-flag-bucket    | Random per-browser bucket id for sticky flag rollout. No PII.     |
  * | alert-health-dismissed | Ids of dismissed alert health flags (#493). No PII.                |
+ * | pwa-install-dismissed-until | PWA install prompt snooze timestamp. No PII.                  |
+ * | pwa-update-dismissed-until | PWA update banner snooze timestamp. No PII.                     |
  * | sound-preferences      | Alert sound enabled flag + 0–1 volume (#308). No PII.             |
  *
  * ## IndexedDB stores (stellar-oracle DB)
@@ -307,7 +318,7 @@ function formatBytes(bytes: number): string {
  * |-------------|----------|--------------------------------------------------------|
  * | prices      | 5 min    | Aggregated price cache. LRU-evicted at 50 MB.          |
  * | history     | 5 min    | Price history cache. Same eviction policy.             |
- * | preferences | ∞        | User display settings. Cleared by clearAllData().      |
+ * | preferences | ∞        | User display settings and local portfolio snapshots.   |
  * | tsPoints    | per-tier | Time-series points. Retention + rollups, see           |
  * |             |          | docs/STORAGE_BUDGET.md.                                 |
  * | tsSeries    | ∞        | Time-series registrations (retention policy).          |
@@ -324,6 +335,10 @@ export const STORAGE_INVENTORY = Object.freeze({
     {
       key: STORAGE_KEYS.alertHistory,
       description: 'Log of triggered alerts (pair + price + timestamp). No PII.',
+    },
+    {
+      key: STORAGE_KEYS.inbox,
+      description: 'Inbox notices and read state, capped at 250 items and 90 days. No PII.',
     },
     {
       key: STORAGE_KEYS.notificationChannels,
@@ -346,6 +361,14 @@ export const STORAGE_INVENTORY = Object.freeze({
       description: 'Ids of alert health flags the user has dismissed. No PII.',
     },
     {
+      key: STORAGE_KEYS.pwaInstallDismissed,
+      description: 'Timestamp until which the PWA install prompt is snoozed. No PII.',
+    },
+    {
+      key: STORAGE_KEYS.pwaUpdateDismissed,
+      description: 'Timestamp until which the PWA update banner is snoozed. No PII.',
+    },
+    {
       key: STORAGE_KEYS.soundPreferences,
       description: 'Alert sound enabled flag + 0–1 volume. No PII.',
     },
@@ -364,7 +387,7 @@ export const STORAGE_INVENTORY = Object.freeze({
     {
       store: 'preferences' as const,
       ttlMs: Infinity,
-      description: 'User preferences. No expiry; cleared by clearAllData().',
+      description: 'User preferences and local portfolio snapshots. No expiry; cleared by clearAllData().',
     },
     {
       store: 'tsPoints' as const,

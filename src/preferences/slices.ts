@@ -50,6 +50,7 @@ function createSliceReducer<K extends keyof Preferences>(ownedKeys: readonly K[]
 export const DATA_PREFERENCE_KEYS = [
   'refreshInterval',
   'chartTimeRange',
+  'chartHistoryPageSize',
   'staleThresholdMinutes',
   'sourcePriority',
   'onChainDivergenceThresholdPercent',

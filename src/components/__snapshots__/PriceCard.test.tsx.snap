@@ -2,7 +2,7 @@
 
 exports[`snapshots > default 1`] = `
 <div
-  class="w-full text-left bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer  border-gray-800"
+  class="w-full text-start bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer  border-gray-800"
   data-testid="price-card"
 >
   <div
@@ -31,7 +31,49 @@ exports[`snapshots > default 1`] = `
       50,000.12
     </div>
     <div
-      class="flex items-center justify-between text-xs text-gray-400 mb-3"
+      class="flex flex-wrap gap-1.5"
+    >
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+          >
+            <span
+              aria-hidden="true"
+              class="me-1"
+            >
+              ●
+            </span>
+            chainlink
+          </span>
+        </span>
+      </span>
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
+          >
+            redstone
+          </span>
+        </span>
+      </span>
+    </div>
+  </div>
+  <div
+    class="flex items-center justify-between text-xs text-gray-400 mb-3"
+  >
+    <span
+      class="inline-flex items-center"
     >
       <span
         class="relative inline-flex items-center"
@@ -54,6 +96,27 @@ exports[`snapshots > default 1`] = `
         </span>
       </span>
       <span
+        class="relative inline-flex align-middle"
+      >
+        <button
+          aria-controls="_r_q_"
+          aria-expanded="false"
+          aria-label="Help: Data freshness"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
+        >
+          <span
+            aria-hidden="true"
+          >
+            ?
+          </span>
+        </button>
+      </span>
+    </span>
+    <span
+      class="inline-flex items-center"
+    >
+      <span
         class="relative inline-flex items-center"
       >
         <span
@@ -67,44 +130,24 @@ exports[`snapshots > default 1`] = `
           </span>
         </span>
       </span>
-    </div>
-    <div
-      class="flex flex-wrap gap-1.5"
-    >
       <span
-        class="relative inline-flex items-center"
+        class="relative inline-flex align-middle"
       >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
+        <button
+          aria-controls="_r_r_"
+          aria-expanded="false"
+          aria-label="Help: Confidence"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
         >
           <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+            aria-hidden="true"
           >
-            <span
-              aria-hidden="true"
-            >
-              ● 
-            </span>
-            chainlink
+            ?
           </span>
-        </span>
+        </button>
       </span>
-      <span
-        class="relative inline-flex items-center"
-      >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
-        >
-          <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
-          >
-            redstone
-          </span>
-        </span>
-      </span>
-    </div>
+    </span>
   </div>
   <div
     class="mt-3 pt-3 border-t border-gray-800"
@@ -136,7 +179,7 @@ exports[`snapshots > default 1`] = `
 
 exports[`snapshots > hasAlert 1`] = `
 <div
-  class="w-full text-left bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer  border-gray-800"
+  class="w-full text-start bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer  border-gray-800"
   data-testid="price-card"
 >
   <div
@@ -165,7 +208,49 @@ exports[`snapshots > hasAlert 1`] = `
       50,000.12
     </div>
     <div
-      class="flex items-center justify-between text-xs text-gray-400 mb-3"
+      class="flex flex-wrap gap-1.5"
+    >
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+          >
+            <span
+              aria-hidden="true"
+              class="me-1"
+            >
+              ●
+            </span>
+            chainlink
+          </span>
+        </span>
+      </span>
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
+          >
+            redstone
+          </span>
+        </span>
+      </span>
+    </div>
+  </div>
+  <div
+    class="flex items-center justify-between text-xs text-gray-400 mb-3"
+  >
+    <span
+      class="inline-flex items-center"
     >
       <span
         class="relative inline-flex items-center"
@@ -188,6 +273,27 @@ exports[`snapshots > hasAlert 1`] = `
         </span>
       </span>
       <span
+        class="relative inline-flex align-middle"
+      >
+        <button
+          aria-controls="_r_10_"
+          aria-expanded="false"
+          aria-label="Help: Data freshness"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
+        >
+          <span
+            aria-hidden="true"
+          >
+            ?
+          </span>
+        </button>
+      </span>
+    </span>
+    <span
+      class="inline-flex items-center"
+    >
+      <span
         class="relative inline-flex items-center"
       >
         <span
@@ -201,44 +307,24 @@ exports[`snapshots > hasAlert 1`] = `
           </span>
         </span>
       </span>
-    </div>
-    <div
-      class="flex flex-wrap gap-1.5"
-    >
       <span
-        class="relative inline-flex items-center"
+        class="relative inline-flex align-middle"
       >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
+        <button
+          aria-controls="_r_11_"
+          aria-expanded="false"
+          aria-label="Help: Confidence"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
         >
           <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+            aria-hidden="true"
           >
-            <span
-              aria-hidden="true"
-            >
-              ● 
-            </span>
-            chainlink
+            ?
           </span>
-        </span>
+        </button>
       </span>
-      <span
-        class="relative inline-flex items-center"
-      >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
-        >
-          <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
-          >
-            redstone
-          </span>
-        </span>
-      </span>
-    </div>
+    </span>
   </div>
   <div
     class="mt-3 pt-3 border-t border-gray-800"
@@ -270,7 +356,7 @@ exports[`snapshots > hasAlert 1`] = `
 
 exports[`snapshots > isLive 1`] = `
 <div
-  class="w-full text-left bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer  border-gray-800"
+  class="w-full text-start bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer  border-gray-800"
   data-testid="price-card"
 >
   <div
@@ -299,7 +385,49 @@ exports[`snapshots > isLive 1`] = `
       50,000.12
     </div>
     <div
-      class="flex items-center justify-between text-xs text-gray-400 mb-3"
+      class="flex flex-wrap gap-1.5"
+    >
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+          >
+            <span
+              aria-hidden="true"
+              class="me-1"
+            >
+              ●
+            </span>
+            chainlink
+          </span>
+        </span>
+      </span>
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
+          >
+            redstone
+          </span>
+        </span>
+      </span>
+    </div>
+  </div>
+  <div
+    class="flex items-center justify-between text-xs text-gray-400 mb-3"
+  >
+    <span
+      class="inline-flex items-center"
     >
       <span
         class="relative inline-flex items-center"
@@ -322,6 +450,27 @@ exports[`snapshots > isLive 1`] = `
         </span>
       </span>
       <span
+        class="relative inline-flex align-middle"
+      >
+        <button
+          aria-controls="_r_s_"
+          aria-expanded="false"
+          aria-label="Help: Data freshness"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
+        >
+          <span
+            aria-hidden="true"
+          >
+            ?
+          </span>
+        </button>
+      </span>
+    </span>
+    <span
+      class="inline-flex items-center"
+    >
+      <span
         class="relative inline-flex items-center"
       >
         <span
@@ -335,44 +484,24 @@ exports[`snapshots > isLive 1`] = `
           </span>
         </span>
       </span>
-    </div>
-    <div
-      class="flex flex-wrap gap-1.5"
-    >
       <span
-        class="relative inline-flex items-center"
+        class="relative inline-flex align-middle"
       >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
+        <button
+          aria-controls="_r_t_"
+          aria-expanded="false"
+          aria-label="Help: Confidence"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
         >
           <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+            aria-hidden="true"
           >
-            <span
-              aria-hidden="true"
-            >
-              ● 
-            </span>
-            chainlink
+            ?
           </span>
-        </span>
+        </button>
       </span>
-      <span
-        class="relative inline-flex items-center"
-      >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
-        >
-          <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
-          >
-            redstone
-          </span>
-        </span>
-      </span>
-    </div>
+    </span>
   </div>
   <div
     class="mt-3 pt-3 border-t border-gray-800"
@@ -404,7 +533,7 @@ exports[`snapshots > isLive 1`] = `
 
 exports[`snapshots > isStale 1`] = `
 <div
-  class="w-full text-left bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer opacity-60 border-gray-800"
+  class="w-full text-start bg-gray-900 border rounded-xl p-5 hover:border-gray-700 hover:bg-gray-900/80 transition-all shadow-lg shadow-black/20 cursor-pointer opacity-60 border-gray-800"
   data-testid="price-card"
 >
   <div
@@ -433,7 +562,49 @@ exports[`snapshots > isStale 1`] = `
       50,000.12
     </div>
     <div
-      class="flex items-center justify-between text-xs text-gray-400 mb-3"
+      class="flex flex-wrap gap-1.5"
+    >
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+          >
+            <span
+              aria-hidden="true"
+              class="me-1"
+            >
+              ●
+            </span>
+            chainlink
+          </span>
+        </span>
+      </span>
+      <span
+        class="relative inline-flex items-center"
+      >
+        <span
+          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
+          tabindex="0"
+        >
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
+          >
+            redstone
+          </span>
+        </span>
+      </span>
+    </div>
+  </div>
+  <div
+    class="flex items-center justify-between text-xs text-gray-400 mb-3"
+  >
+    <span
+      class="inline-flex items-center"
     >
       <span
         class="relative inline-flex items-center"
@@ -456,6 +627,27 @@ exports[`snapshots > isStale 1`] = `
         </span>
       </span>
       <span
+        class="relative inline-flex align-middle"
+      >
+        <button
+          aria-controls="_r_u_"
+          aria-expanded="false"
+          aria-label="Help: Data freshness"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
+        >
+          <span
+            aria-hidden="true"
+          >
+            ?
+          </span>
+        </button>
+      </span>
+    </span>
+    <span
+      class="inline-flex items-center"
+    >
+      <span
         class="relative inline-flex items-center"
       >
         <span
@@ -469,44 +661,24 @@ exports[`snapshots > isStale 1`] = `
           </span>
         </span>
       </span>
-    </div>
-    <div
-      class="flex flex-wrap gap-1.5"
-    >
       <span
-        class="relative inline-flex items-center"
+        class="relative inline-flex align-middle"
       >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
+        <button
+          aria-controls="_r_v_"
+          aria-expanded="false"
+          aria-label="Help: Confidence"
+          class="ms-1 inline-flex h-5 w-5 items-center justify-center rounded-full border border-gray-500 text-[11px] font-semibold text-gray-400 hover:text-cyan-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-500"
+          type="button"
         >
           <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-blue-500/20 text-blue-300 border-blue-500/30 ring-1 ring-cyan-400"
+            aria-hidden="true"
           >
-            <span
-              aria-hidden="true"
-            >
-              ● 
-            </span>
-            chainlink
+            ?
           </span>
-        </span>
+        </button>
       </span>
-      <span
-        class="relative inline-flex items-center"
-      >
-        <span
-          class="cursor-help focus:outline-none focus-visible:ring-1 focus-visible:ring-cyan-500 rounded"
-          tabindex="0"
-        >
-          <span
-            class="px-2 py-0.5 rounded text-xs font-medium border transition-colors bg-red-500/20 text-red-300 border-red-500/30 "
-          >
-            redstone
-          </span>
-        </span>
-      </span>
-    </div>
+    </span>
   </div>
   <div
     class="mt-3 pt-3 border-t border-gray-800"

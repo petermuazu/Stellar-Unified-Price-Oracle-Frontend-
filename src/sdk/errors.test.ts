@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { OracleClient } from './client'
-import { OracleNotFoundError, OracleRateLimitError, OracleValidationError } from './errors'
+import { OracleNotFoundError, OracleRateLimitError, OracleValidationError, OracleVersionMismatchError } from './errors'
 import { computeDelay, DEFAULT_RETRY_POLICY } from './retry'
 const res = (s: number, b: unknown = {}, h: Record<string, string> = {}) => new Response(JSON.stringify(b), { status: s, headers: h })
 describe('error taxonomy and retry', () => {
@@ -13,18 +13,31 @@ describe('error taxonomy and retry', () => {
     const f = vi.fn().mockResolvedValue(res(400, { code: 'validation_failed' }))
     await expect(new OracleClient({ fetch: f }).getPrices()).rejects.toBeInstanceOf(OracleValidationError)
   })
+  it('reports actionable API version mismatch diagnostics', async () => {
+    const f = vi.fn().mockResolvedValue(res(409, { code: 'API_VERSION_MISMATCH' }, { 'X-API-Version': '2.1.0' }))
+    const client = new OracleClient({ fetch: f })
+    await expect(client.getPrices()).rejects.toMatchObject({
+      code: 'version_mismatch',
+      serverVersion: '2.1.0',
+      message: expect.stringContaining('Update the SDK'),
+    })
+    await expect(client.getPrices()).rejects.toBeInstanceOf(OracleVersionMismatchError)
+  })
   it('retries 429 honoring Retry-After then throws typed error', async () => {
     const f = vi.fn().mockResolvedValue(res(429, {}, { 'Retry-After': '1' }))
     const sleep = vi.fn().mockResolvedValue(undefined)
     await expect(new OracleClient({ fetch: f, sleep, maxRetries: 1, random: () => 0 }).getPrices()).rejects.toBeInstanceOf(OracleRateLimitError)
     expect(sleep).toHaveBeenCalledWith(1000)
   })
-  it('reuses idempotency key across retries', async () => {
+  it('reuses a caller-provided idempotency key across retries', async () => {
     const f = vi.fn().mockResolvedValueOnce(res(503)).mockResolvedValueOnce(res(200, {}))
-    await new OracleClient({ fetch: f, sleep: async () => {} }).createAlert({ assetPair: 'X' })
+    const idempotencyKey = 'alert-action-123'
+    await new OracleClient({ fetch: f, sleep: async () => {} }).createAlert(
+      { assetPair: 'X' },
+      { idempotencyKey },
+    )
     const keys = f.mock.calls.map((c) => c[1].headers['Idempotency-Key'])
-    expect(keys[0]).toBeTruthy()
-    expect(keys[0]).toBe(keys[1])
+    expect(keys).toEqual([idempotencyKey, idempotencyKey])
   })
   it('caps delay', () => expect(computeDelay(DEFAULT_RETRY_POLICY, 20, null, () => 1)).toBe(30000))
 })

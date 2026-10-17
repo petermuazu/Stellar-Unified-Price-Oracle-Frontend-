@@ -77,6 +77,13 @@ retention and rollups.
   list of entries in a single IndexedDB transaction, instead of one
   transaction per entry. Prefer this for any bulk or bursty write (e.g.
   replaying a backlog, importing saved views).
+- **Browser quota warning:** before newly fetched price-history pages are
+  written locally, `navigator.storage.estimate()` is checked when supported.
+  At 80% of the browser's reported origin-wide quota, the price-detail page
+  warns that the browser may reclaim locally saved history. This is an
+  estimate, not a reservation or eviction guarantee: browsers control their
+  own eviction behavior, and live/API prices remain separate. Unsupported or
+  failed estimates do not show a misleading warning.
 
 ## Alert history (`localStorage`)
 

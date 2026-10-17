@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ReferencePricePointSchema } from '../api/schemas'
 
 /**
  * Reference-price oracle hook (issue #664).
@@ -9,68 +10,79 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
  */
 
 export interface ReferencePricePoint {
+  /** Asset pair requested from the independent benchmark API. */
+  pair: string
   /** ISO timestamp of the observation. */
-  timestamp: string;
+  timestamp: string
   /** Benchmark price. Evaluation only — not tradable. */
-  price: number;
+  price: number
+  /** Upstream benchmark provider, when the API reports it. */
+  source?: string | null
 }
 
 export interface ReferenceDeviationPoint {
-  timestamp: string;
+  timestamp: string
   /** Aggregate price at this observation. */
-  aggregate: number;
+  aggregate: number
   /** Independent benchmark price at this observation. */
-  reference: number;
+  reference: number
   /** Signed relative deviation: (aggregate - reference) / reference. */
-  deviation: number;
+  deviation: number
 }
 
 export interface ReferenceDeviationOptions {
+  /** Pair to request; empty pairs disable the benchmark fetch. */
+  pair?: string
   /** Rolling window (in points) used to detect sustained bias. */
-  windowSize?: number;
+  windowSize?: number
   /** Absolute mean deviation above which a sustained-bias alert fires. */
-  biasThreshold?: number;
+  biasThreshold?: number
   /** Polling interval in ms for the read-only reference feed. */
-  pollIntervalMs?: number;
+  pollIntervalMs?: number
   /** Injectable fetcher (defaults to the read-only reference endpoint). */
-  fetcher?: (signal?: AbortSignal) => Promise<ReferencePricePoint[]>;
+  fetcher?: (pair: string, signal?: AbortSignal) => Promise<ReferencePricePoint[]>
 }
 
 export interface ReferenceDeviationResult {
   /** Time series of aggregate-vs-reference deviation. */
-  series: ReferenceDeviationPoint[];
+  series: ReferenceDeviationPoint[]
   /** Rolling mean deviation over the configured window. */
-  rollingBias: number | null;
+  rollingBias: number | null
   /** True when sustained bias exceeds the configured threshold. */
-  biasAlert: boolean;
+  biasAlert: boolean
   /** Latest benchmark price, for evaluation only. */
-  latestReference: number | null;
-  loading: boolean;
-  error: Error | null;
+  latestReference: number | null
+  /** Latest pair-matched observation, including its upstream timestamp and source. */
+  latestReferencePoint: ReferencePricePoint | null
+  loading: boolean
+  error: Error | null
   /** Force a refresh of the read-only reference feed. */
-  refresh: () => void;
+  refresh: () => void
 }
 
-const DEFAULT_WINDOW = 12;
-const DEFAULT_BIAS_THRESHOLD = 0.02;
-const DEFAULT_POLL_INTERVAL = 60_000;
+const DEFAULT_WINDOW = 12
+const DEFAULT_BIAS_THRESHOLD = 0.02
+const DEFAULT_POLL_INTERVAL = 60_000
 
 /**
  * Read-only reference feed. This endpoint is a benchmark oracle and is
  * intentionally kept separate from every aggregation source so it can act as
  * independent ground truth.
  */
-async function defaultFetcher(signal?: AbortSignal): Promise<ReferencePricePoint[]> {
-  const res = await fetch('/api/reference-price', {
+async function defaultFetcher(pair: string, signal?: AbortSignal): Promise<ReferencePricePoint[]> {
+  const res = await fetch(`/api/reference-price?pair=${encodeURIComponent(pair)}`, {
     method: 'GET',
     signal,
     headers: { Accept: 'application/json' },
-  });
+  })
   if (!res.ok) {
-    throw new Error(`Reference oracle request failed: ${res.status}`);
+    throw new Error(`Reference oracle request failed: ${res.status}`)
   }
-  const data = (await res.json()) as ReferencePricePoint[];
-  return Array.isArray(data) ? data : [];
+  const data: unknown = await res.json()
+  if (!Array.isArray(data)) {
+    throw new Error('Reference oracle response must be an array')
+  }
+  return data.map((point) => ReferencePricePointSchema.parse(point)).filter((point) => point.pair === pair)
 }
 
 /**
@@ -78,12 +90,9 @@ async function defaultFetcher(signal?: AbortSignal): Promise<ReferencePricePoint
  * independent reference. The reference is used only as the denominator here —
  * it never feeds back into the aggregate.
  */
-export function computeDeviation(
-  aggregate: number,
-  reference: number,
-): number {
-  if (!Number.isFinite(reference) || reference === 0) return 0;
-  return (aggregate - reference) / reference;
+export function computeDeviation(aggregate: number, reference: number): number {
+  if (!Number.isFinite(reference) || reference === 0) return 0
+  return (aggregate - reference) / reference
 }
 
 /**
@@ -91,12 +100,10 @@ export function computeDeviation(
  * Used to rank strategies and tune outlier thresholds without ever mutating
  * the aggregate itself.
  */
-export function scoreAgainstReference(
-  series: ReferenceDeviationPoint[],
-): number {
-  if (series.length === 0) return 0;
-  const sumSq = series.reduce((acc, p) => acc + p.deviation * p.deviation, 0);
-  return Math.sqrt(sumSq / series.length);
+export function scoreAgainstReference(series: ReferenceDeviationPoint[]): number {
+  if (series.length === 0) return 0
+  const sumSq = series.reduce((acc, p) => acc + p.deviation * p.deviation, 0)
+  return Math.sqrt(sumSq / series.length)
 }
 
 /**
@@ -108,21 +115,19 @@ export function evaluateOutlierThreshold(
   referenceSeries: ReferencePricePoint[],
   threshold: number,
 ): ReferenceDeviationPoint[] {
-  const referenceByTime = new Map(
-    referenceSeries.map((p) => [p.timestamp, p.price]),
-  );
+  const referenceByTime = new Map(referenceSeries.map((p) => [p.timestamp, p.price]))
   return aggregateSeries
     .filter((p) => referenceByTime.has(p.timestamp))
     .map((p) => {
-      const reference = referenceByTime.get(p.timestamp) as number;
-      const aggregate = Math.abs(p.price) > threshold ? p.price : reference;
+      const reference = referenceByTime.get(p.timestamp) as number
+      const aggregate = Math.abs(p.price) > threshold ? p.price : reference
       return {
         timestamp: p.timestamp,
         aggregate,
         reference,
         deviation: computeDeviation(aggregate, reference),
-      };
-    });
+      }
+    })
 }
 
 /**
@@ -135,95 +140,105 @@ export function useReferenceDeviation(
   options: ReferenceDeviationOptions = {},
 ): ReferenceDeviationResult {
   const {
+    pair: requestedPair,
     windowSize = DEFAULT_WINDOW,
     biasThreshold = DEFAULT_BIAS_THRESHOLD,
     pollIntervalMs = DEFAULT_POLL_INTERVAL,
     fetcher = defaultFetcher,
-  } = options;
+  } = options
+  const pair = requestedPair ?? ''
 
-  const [referenceSeries, setReferenceSeries] = useState<ReferencePricePoint[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [nonce, setNonce] = useState(0);
-  const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  const [referenceSeries, setReferenceSeries] = useState<ReferencePricePoint[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [nonce, setNonce] = useState(0)
+  const fetcherRef = useRef(fetcher)
+  fetcherRef.current = fetcher
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  const refresh = useCallback(() => setNonce((n) => n + 1), [])
 
   useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
+    if (!pair) {
+      setReferenceSeries([])
+      setLoading(false)
+      setError(null)
+      return
+    }
+
+    setReferenceSeries([])
+    const controller = new AbortController()
+    let cancelled = false
 
     const load = async () => {
-      setLoading(true);
+      setLoading(true)
       try {
-        const points = await fetcherRef.current(controller.signal);
+        const points = await fetcherRef.current(pair, controller.signal)
         if (!cancelled) {
-          setReferenceSeries(points);
-          setError(null);
+          setReferenceSeries(points.filter((point) => point.pair === pair))
+          setError(null)
         }
       } catch (err) {
         if (!cancelled && (err as Error).name !== 'AbortError') {
-          setError(err as Error);
+          setError(err as Error)
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoading(false)
       }
-    };
+    }
 
-    void load();
-    const timer = setInterval(load, pollIntervalMs);
+    void load()
+    const timer = setInterval(load, pollIntervalMs)
 
     return () => {
-      cancelled = true;
-      clearInterval(timer);
-      controller.abort();
-    };
-  }, [pollIntervalMs, nonce]);
+      cancelled = true
+      clearInterval(timer)
+      controller.abort()
+    }
+  }, [pair, pollIntervalMs, nonce])
 
   const series = useMemo<ReferenceDeviationPoint[]>(() => {
-    const referenceByTime = new Map(
-      referenceSeries.map((p) => [p.timestamp, p.price]),
-    );
+    const referenceByTime = new Map(referenceSeries.map((p) => [p.timestamp, p.price]))
     return aggregateSeries
       .filter((p) => referenceByTime.has(p.timestamp))
       .map((p) => {
-        const reference = referenceByTime.get(p.timestamp) as number;
+        const reference = referenceByTime.get(p.timestamp) as number
         return {
           timestamp: p.timestamp,
           aggregate: p.price,
           reference,
           deviation: computeDeviation(p.price, reference),
-        };
-      });
-  }, [aggregateSeries, referenceSeries]);
+        }
+      })
+  }, [aggregateSeries, referenceSeries])
 
   const rollingBias = useMemo<number | null>(() => {
-    if (series.length === 0) return null;
-    const window = series.slice(-windowSize);
-    const mean = window.reduce((acc, p) => acc + p.deviation, 0) / window.length;
-    return mean;
-  }, [series, windowSize]);
+    if (series.length === 0) return null
+    const window = series.slice(-windowSize)
+    const mean = window.reduce((acc, p) => acc + p.deviation, 0) / window.length
+    return mean
+  }, [series, windowSize])
 
   const biasAlert = useMemo<boolean>(() => {
-    if (rollingBias === null) return false;
-    return Math.abs(rollingBias) >= biasThreshold;
-  }, [rollingBias, biasThreshold]);
+    if (rollingBias === null) return false
+    return Math.abs(rollingBias) >= biasThreshold
+  }, [rollingBias, biasThreshold])
 
   const latestReference = useMemo<number | null>(() => {
-    if (referenceSeries.length === 0) return null;
-    return referenceSeries[referenceSeries.length - 1].price;
-  }, [referenceSeries]);
+    if (referenceSeries.length === 0) return null
+    return referenceSeries[referenceSeries.length - 1].price
+  }, [referenceSeries])
+  const latestReferencePoint = referenceSeries[referenceSeries.length - 1] ?? null
 
   return {
     series,
     rollingBias,
     biasAlert,
     latestReference,
+    latestReferencePoint,
     loading,
     error,
     refresh,
-  };
+  }
 }
 
-export default useReferenceDeviation;
+export default useReferenceDeviation

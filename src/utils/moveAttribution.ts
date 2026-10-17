@@ -30,39 +30,37 @@ export type SourcePriceState = Record<string, number>
  * @param msg         - The incoming WS price_update message.
  * @param prevSources - Previous per-source prices (mutated in place).
  * @param prevPrice   - Aggregate price from the last tick, or `null` on first tick.
+ * @param prevConfidence - Confidence score from the last tick, when available.
  * @returns A fully populated {@link MoveAttribution} record.
  */
 export function computeAttribution(
   msg: WsPriceUpdate,
   prevSources: SourcePriceState,
   prevPrice: number | null,
+  prevConfidence: number | null = null,
 ): MoveAttribution {
   const sourcePrices = msg.sourcePrices ?? {}
 
   // Build per-source deltas
   const sourceDeltas: SourceDelta[] = msg.sources.map((src) => {
-    // Use server-provided per-source price when available, otherwise fall back
-    // to the aggregate — this gives a useful approximation while per-source
-    // prices are not yet in the server protocol.
-    const price = sourcePrices[src] ?? msg.price
+    const sourcePrice = sourcePrices[src]
+    const priceIsObserved = Number.isFinite(sourcePrice) && sourcePrice > 0
+    const price = priceIsObserved ? sourcePrice : msg.price
     const prev = prevSources[src] ?? null
 
     const delta = prev !== null ? price - prev : null
-    const deltaPercent =
-      prev !== null && prev !== 0 ? ((price - prev) / prev) * 100 : null
+    const deltaPercent = prev !== null && prev !== 0 ? ((price - prev) / prev) * 100 : null
 
     // Update state for next tick
     prevSources[src] = price
 
-    return { source: src, price, prevPrice: prev, delta, deltaPercent }
+    return { source: src, price, priceIsObserved, prevPrice: prev, delta, deltaPercent }
   })
 
   // Aggregate delta
   const aggregateDelta = prevPrice !== null ? msg.price - prevPrice : null
   const aggregateDeltaPercent =
-    prevPrice !== null && prevPrice !== 0
-      ? ((msg.price - prevPrice) / prevPrice) * 100
-      : null
+    prevPrice !== null && prevPrice !== 0 ? ((msg.price - prevPrice) / prevPrice) * 100 : null
 
   // Identify which source(s) moved the most (largest |delta|)
   const leadingSources = identifyLeaders(sourceDeltas)
@@ -71,6 +69,8 @@ export function computeAttribution(
     assetPair: msg.assetPair,
     timestamp: msg.timestamp,
     price: msg.price,
+    confidence: msg.confidence,
+    previousConfidence: prevConfidence,
     delta: aggregateDelta,
     deltaPercent: aggregateDeltaPercent,
     sources: sourceDeltas,
@@ -89,9 +89,7 @@ function identifyLeaders(deltas: SourceDelta[]): string[] {
   const maxAbs = Math.max(...withDelta.map((d) => Math.abs(d.delta!)))
   if (maxAbs === 0) return []
 
-  return withDelta
-    .filter((d) => Math.abs(d.delta!) === maxAbs)
-    .map((d) => d.source)
+  return withDelta.filter((d) => Math.abs(d.delta!) === maxAbs).map((d) => d.source)
 }
 
 /**
@@ -106,10 +104,7 @@ function identifyLeaders(deltas: SourceDelta[]): string[] {
  * @returns A new array with the record appended and the oldest entry removed
  *          if the buffer was full.
  */
-export function appendToRingBuffer(
-  buffer: MoveAttribution[],
-  record: MoveAttribution,
-): MoveAttribution[] {
+export function appendToRingBuffer(buffer: MoveAttribution[], record: MoveAttribution): MoveAttribution[] {
   if (buffer.length < ATTRIBUTION_RING_BUFFER_SIZE) {
     return [...buffer, record]
   }

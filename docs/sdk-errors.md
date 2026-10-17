@@ -7,7 +7,8 @@ All SDK failures are `OracleError` subclasses exported from the SDK. Each has `s
 | `bad_request` | `OracleBadRequestError` | 400 | no | Fix the request |
 | `unauthorized` / `forbidden` | `OracleAuthError` | 401/403 | no | Refresh or replace the API key |
 | `not_found` | `OracleNotFoundError` | 404 | no | Check the pair or resource id |
-| `conflict` | `OracleConflictError` | 409 | no | Re-read state, then retry manually |
+| `conflict` | `OracleConflictError` | 409 | no | Re-read state, then retry manually when the response code is `conflict` |
+| `version_mismatch` | `OracleVersionMismatchError` | 406/409 | no | Align SDK and API versions; `serverVersion` is read from `X-API-Version` when provided |
 | `validation_failed` | `OracleValidationError` | 422 | no | Fix payload fields |
 | `rate_limited` | `OracleRateLimitError` | 429 | yes | Honors `Retry-After` |
 | `server_error` | `OracleServerError` | 5xx | yes | Backoff with jitter |
@@ -17,6 +18,13 @@ All SDK failures are `OracleError` subclasses exported from the SDK. Each has `s
 ## Retry policy
 
 Retryable errors are retried up to `maxRetries` (default 3) with delay `max(Retry-After, base * 2^attempt + jitter)`, capped at 30s. See `computeDelay` in `src/sdk/retry.ts`.
+
+## Version mismatch diagnostics
+
+HTTP 406 and 409 responses are exposed as `OracleVersionMismatchError`. The error
+includes the response body and, when the server sends `X-API-Version`, its
+`serverVersion`. Align the SDK with that API release or deploy a compatible API;
+these errors are not retried automatically.
 
 ## Idempotency
 

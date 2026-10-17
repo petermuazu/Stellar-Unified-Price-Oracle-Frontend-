@@ -68,14 +68,14 @@ export function useAlertAnnouncer(alerts: Alert[] | undefined, config: Partial<A
     const now = Date.now()
 
     for (const alert of alerts) {
-      const prevFireCount = prevFireCountRef.current.get(alert.id) ?? 0
+      const prevFireCount = prevFireCountRef.current.get(alert.id)
       const lastAnnounced = lastAnnouncedRef.current.get(alert.id)
 
       // Track fire count
       prevFireCountRef.current.set(alert.id, alert.fireCount)
 
       // Announce if alert just fired (fireCount increased)
-      if (alert.fireCount > prevFireCount && alert.active) {
+      if (prevFireCount !== undefined && alert.fireCount > prevFireCount && alert.active) {
         // Check deduplication window
         if (lastAnnounced === undefined || now - lastAnnounced >= mergedConfig.deduplicationMs) {
           const conditionText = formatAlertCondition(alert)

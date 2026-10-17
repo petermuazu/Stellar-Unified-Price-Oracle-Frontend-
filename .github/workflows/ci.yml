@@ -55,6 +55,9 @@ jobs:
 
       - run: npm run test:run
 
+      - name: Test SDK offline fixture server
+        run: npm run sdk:fixture-smoke
+
       # Render profiling gate (#677): renders key views with a fixed, seeded
       # dataset and asserts per-component render counts against the checked-in
       # budgets in perf/render-budgets.json. A planted missing-`memo` or an

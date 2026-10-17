@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useIsRtl } from '../hooks/useIsRtl'
 import {
   computeViewport,
   createAreaPlugin,
@@ -30,6 +31,7 @@ interface Props {
 export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-full h-48', formatX, formatY }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [crosshair, setCrosshair] = useState<Crosshair | null>(null)
+  const isRtl = useIsRtl()
 
   // #505 — decimate large series with LTTB so rendering stays smooth at
   // 10k+ history points, while keeping visual shape intact.
@@ -42,17 +44,26 @@ export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const { width, height } = canvas
+    const dpr = window.devicePixelRatio || 1
+    const width = canvas.width / dpr
+    const height = canvas.height / dpr
     ctx.clearRect(0, 0, width, height)
 
     const vp = computeViewport(renderSeries, width, height, 0, 8)
+
+    ctx.save()
+    if (isRtl) {
+      ctx.translate(width, 0)
+      ctx.scale(-1, 1)
+    }
 
     for (const plugin of plugins) {
       ctx.save()
       plugin.render(ctx, renderSeries, vp)
       ctx.restore()
     }
-  }, [renderSeries, plugins])
+    ctx.restore()
+  }, [renderSeries, plugins, isRtl])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -92,7 +103,8 @@ export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-
       let best: { dist: number; cx: number; cy: number; dataX: number; dataY: number; label: string } | null = null
       for (const s of renderSeries) {
         for (const pt of s.points) {
-          const cx = toCanvasX(vp, pt.x)
+          const rawX = toCanvasX(vp, pt.x)
+          const cx = isRtl ? canvas.width / dpr - rawX : rawX
           const cy = toCanvasY(vp, pt.y)
           const dist = Math.abs(cx - mouseX)
           if (!best || dist < best.dist) {
@@ -114,7 +126,7 @@ export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-
         setCrosshair(null)
       }
     },
-    [renderSeries],
+    [renderSeries, isRtl],
   )
 
   const defaultFormatX = useCallback((x: number) => {
@@ -130,15 +142,17 @@ export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-
 
   const fmtX = formatX ?? defaultFormatX
   const fmtY = formatY ?? defaultFormatY
+  const canvasWidth = canvasRef.current?.getBoundingClientRect().width ?? 0
 
   return (
     <div className="relative">
       {decimation.decimated && (
         <div
-          className="absolute top-2 left-2 z-10 rounded bg-gray-800/80 border border-gray-700 px-2 py-0.5 text-[10px] font-mono text-gray-400"
+          className="absolute top-2 start-2 z-10 rounded bg-gray-800/80 border border-gray-700 px-2 py-0.5 text-[10px] font-mono text-gray-400"
           title="Points are downsampled with LTTB to keep rendering smooth; the displayed shape matches the source data."
         >
-          decimated {decimation.sourcePointCount.toLocaleString()} → {decimation.renderedPointCount.toLocaleString()} points
+          decimated {decimation.sourcePointCount.toLocaleString()} → {decimation.renderedPointCount.toLocaleString()}{' '}
+          points
         </div>
       )}
       <canvas
@@ -152,15 +166,15 @@ export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-
       {crosshair && (
         <div
           className="absolute pointer-events-none z-10"
-          style={{ left: crosshair.x, top: 0, height: '100%' }}
+          style={{ insetInlineStart: isRtl ? canvasWidth - crosshair.x : crosshair.x, top: 0, height: '100%' }}
         >
-          <div className="absolute inset-y-0 left-0 w-px bg-gray-500/50" />
+          <div className="absolute inset-y-0 start-0 w-px bg-gray-500/50" />
           <div
             className="absolute w-2 h-2 rounded-full bg-cyan-400 border-2 border-gray-900 -translate-x-1/2 -translate-y-1/2"
             style={{ top: crosshair.y }}
           />
           <div
-            className="absolute left-2 -translate-y-1/2 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 whitespace-nowrap"
+            className="absolute start-2 -translate-y-1/2 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 whitespace-nowrap"
             style={{ top: crosshair.y }}
           >
             <div className="text-gray-400 text-[10px]">{fmtX(crosshair.dataX)}</div>
@@ -169,7 +183,7 @@ export function CanvasChart({ series, plugins = DEFAULT_PLUGINS, className = 'w-
         </div>
       )}
       {series.length > 1 && (
-        <div className="absolute top-2 right-2 flex items-center gap-3">
+        <div className="absolute top-2 end-2 flex items-center gap-3">
           {series.map((s) => (
             <div key={s.id} className="flex items-center gap-1 text-xs">
               <span
